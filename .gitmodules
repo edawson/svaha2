@@ -1,0 +1,9 @@
+[submodule "gfakluge"]
+	path = gfakluge
+	url = https://github.com/edawson/gfakluge
+[submodule "tinyFA"]
+	path = tinyFA
+	url = https://github.com/edawson/tinyFA
+[submodule "sparsepp"]
+	path = sparsepp
+	url = https://github.com/edawson/sparsepp
