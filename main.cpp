@@ -22,6 +22,8 @@ void usage(){
     cout << "options:" << endl;
     cout << "-m / --max-node-size : maximum length (in basepairs) of a node in the graph." << endl;
     cout << "-t / --threads       : number of OMP threads to use in construction." << endl;
+    cout << "-f / --flat          : use flat alternates (every allele is represented by at least one node)." << endl;
+    cout << "-p / --paths         : output path information for variants." << endl;
     cout << "version 0.1" << endl;
 }
 
