@@ -1,29 +1,140 @@
+#include <iostream>
 #include <vector>
-#include <stdio>
+#include <getopt.h>
+#include <omp.h>
+#include <map>
+#include <set>
+#include "pliib.hpp"
 #include "tinyFA.hpp"
-#include "sparsepp/spp.h"
+#include "tinyVCF.hpp"
+#include "spp.h"
 #include "gfakluge.hpp"
 
-int construct_contig(){
+using namespace std;
 
-}
+namespace svaha {
 
-int construct(){
+struct node{
+    std::uint64_t id;
+    char* contig = NULL;
+    char* seq = NULL;
+    std::uint32_t seqlen;
+    std::uint64_t contig_seq_start;
+    std::uint64_t contig_seq_end;
+    std::vector<node*> prev;
+    std::vector<node*> next;
+    std::string emit(){
+        gfak::sequence_elem s;
+        s.id = id;
+        s.name = std::to_string(id);
+        s.sequence = string(seq);
+        return s.to_string_2();
+    };
+};
 
-}
+struct edge{
+    // These two booleans define if the edges
+    // go in the default from_end/to_start way or not.
+    // Inversions don't follow this pattern,
+    // instead going from the start to the end, for example.
+    bool from_end = true;
+    bool to_start = true;
+    bool is_reverse = false;
+    node* to_node;
+    node* from_node;
+    std::string emit(){
 
-int make_breakpoints(){
+    };
+};
 
-}
+
+struct path{
+    std::uint64_t id;
+    std::string name;
+    std::vector<edge*> edges;
+    std::vector<node*> nodes;
+};
+
+struct pre_contig{
+    char* seq;
+    std::uint32_t seqlen;
+    std::uint64_t c_node_id = 0;
+    std::uint64_t c_edge_id = 0;
+    spp::sparse_hash_map<uint64_t, node*> breakpoint_to_node;
+    std::vector<std::uint64_t> breakpoints;
+    std::vector<edge*> edges;
+    std::vector<node*> nodes;
+    spp::sparse_hash_map<uint64_t, TVCF::variant> interchrom_variants;
+
+    node* create_node(){
+        node* n = new node();
+        n->id = ++c_node_id;
+        return n;
+    };
+    void bump_node_ids(std::uint64_t bumpsz){
+        c_node_id = bumpsz;
+    };
+    void set_edge_id_start(){
+        this->c_edge_id = this->c_node_id + 1;
+    };
+    void add_bp(std::uint64_t b){
+        breakpoints.push_back(b);
+    };
+    void sort_bps(){
+        std::sort(breakpoints.begin(), breakpoints.end());
+    };
+    void uniquify_bps(){
+        std::set<std::uint64_t> unis (breakpoints.begin(), breakpoints.end());
+        std::vector<std::uint64_t> bps (unis.begin(), unis.end());
+        breakpoints = bps;
+    };
+};
+
+
+struct graph{
+    uint64_t min_node_id = 0;
+    uint64_t max_node_id = 0;
+    uint64_t min_edge_id = 0;
+    uint64_t max_edge_id = 0;
+    uint64_t curr_node_id = 0;
+    uint64_t curr_edge_id = 0;
+    node* create_node(){
+        node* n = new node();
+        n->id = ++curr_node_id;
+        return n;
+    };
+    std::uint64_t edge_id(){
+        return ++curr_edge_id;
+    };
+    spp::sparse_hash_map<string, pre_contig> name_to_contig;
+    spp::sparse_hash_map<string, vector<TVCF::variant>> name_to_variants;
+    void re_id(){
+        std::uint64_t prev_id = 0;
+    };
+};
+
+void make_maxnode_breakpoints(uint64_t seqlen, uint32_t maxnodelen, std::vector<std::uint64_t>& ret){
+    
+    ret.reserve(seqlen / maxnodelen);
+    for (size_t i = 0; i < seqlen; i += maxnodelen){
+        ret.push_back(i);
+    }
+};
+
+
+};
 
 void usage(){
     cout << "svaha2: linear-time, low-memory construction of variation graphs." << endl;
     cout << "Usage: svaha2 [options] -r <ref.fa> -v <variants.vcf> " << endl;
     cout << "options:" << endl;
     cout << "-m / --max-node-size : maximum length (in basepairs) of a node in the graph." << endl;
-    cout << "-t / --threads       : number of OMP threads to use in construction." << endl;
-    cout << "-f / --flat          : use flat alternates (every allele is represented by at least one node)." << endl;
-    cout << "-p / --paths         : output path information for variants." << endl;
+    cout << "-r / --reference     : The reference genome to use for construction." << endl;
+    cout << "-v / --vcf           : A VCF file to use for construction." << endl;
+    //cout << "-t / --threads       : number of OMP threads to use in construction." << endl;
+    //cout << "-f / --flat          : use flat alternates (every allele is represented by at least one node)." << endl;
+    //cout << "-p / --paths         : output path information for variants." << endl;
+    //cout << "-I / --insertions         : FASTA file of insertion variant sequences." << endl;
     cout << "version 0.1" << endl;
 }
 
@@ -31,6 +142,7 @@ int main(int argc, char** argv){
 
     char* ref_file = NULL;
     char* var_file = NULL;
+    char* insertion_file = NULL;
     int threads = 1;
     int max_node_size = 128;
 
@@ -42,13 +154,311 @@ int main(int argc, char** argv){
         exit(1);
     }
 
+    while (true){
+        static struct option long_options[] =
+        {
+            {"help", no_argument, 0, 'h'},
+            {"reference", required_argument, 0, 'r'},
+            {"vcf", required_argument, 0, 'v'},
+            {"threads", required_argument, 0, 't'},
+            {"max-node-size", required_argument, 0, 'm'},
+            {"flat", no_argument, 0, 'f'},
+            {"paths", no_argument, 0, 'p'},
+            {"insertions", no_argument, 0, 'I'},
+            {0,0,0,0}
+        };
+        int option_index = 0;
+        c = getopt_long(argc, argv, "hr:v:I:t:m:pf", long_options, &option_index);
+        if (c == -1){
+            break;
+        }
+        switch (c){
+            case 't':
+                threads = atoi(optarg);
+                break;
+            case 'r':
+                pliib::strcopy(optarg, ref_file);
+                break;
+            case 'I':
+                pliib::strcopy(optarg, insertion_file);
+                break;
+            case 'v':
+                pliib::strcopy(optarg, var_file);
+                break;
+            case 'm':
+                max_node_size = atoi(optarg);
+                break;
+            case 'h':
+                usage();
+                exit(1);
+            default:
+                abort();
+        }
+    
+    }
+
+
+
     if (ref_file == NULL){
         cerr << "ERROR: svaha2 requires a reference file." << endl;
         usage();
         exit(1);
     }
+
+
+    TFA::tiny_faidx_t tf;
+    if (!TFA::checkFAIndexFileExists(ref_file)){
+        cerr << "No .fai index found for " << ref_file << "; creating index." << endl;
+        TFA::createFAIndex(ref_file, tf);
+        TFA::writeFAIndex(ref_file, tf);
+        cerr << "FASTA index created." << endl;
+
+    }
+    else{
+        cerr << "FASTA index found for " << ref_file << endl;
+        parseFAIndex(ref_file, tf);
+        cerr << "Parsed fasta index with " << tf.seq_to_entry.size() << " entries." << endl;
+    }
+
+    TFA::tiny_faidx_t insertion_tf;
+    if (insertion_file != NULL){
+        if (TFA::checkFAIndexFileExists(insertion_file)){
+            cerr << "No .fai index found for " << insertion_file << "; creating index." << endl;
+            TFA::createFAIndex(insertion_file, insertion_tf);
+            TFA::writeFAIndex(insertion_file, insertion_tf);
+            cerr << "FASTA index created." << endl;
+        }
+        else{
+            cerr << "FASTA index found for " << insertion_file << endl;
+            parseFAIndex(insertion_file, insertion_tf);
+            cerr << "Parsed fasta index with " << tf.seq_to_entry.size() << " entries." << endl;
+        }
+    }
+    // Step 0: initialize a graph to hold contig information
+    svaha::graph sg;
+    for (auto& x : tf.seq_to_entry){
+        svaha::pre_contig p;
+        sg.name_to_contig[string(x.first)] = p;
+        std::vector<TVCF::variant> bps;
+        sg.name_to_variants[string(x.first)] = bps;
+    }
+
+    // Step one: add breakpoints for max-node-length
+     
+
+    std::uint64_t var_count = 0;
     
+    if (var_file != NULL){
+        std::ifstream vfi(var_file);
+        if (vfi.good()){
+            cerr << "Loading variants from " << var_file << endl;
+            
+            char* current_contig = NULL;
+            //std::vector<std::uint64_t> breakpoints;
+            int mxlsz = 2000;
+            char* line = new char[mxlsz];
+            TVCF::variant* var = new TVCF::variant();
+            while (vfi.getline(line, mxlsz)){
+                if (line[0] != '#'){
+                    TVCF::parse_variant_line(line, var);
+                    if (current_contig != NULL && current_contig != var->chrom){
+                        // We've moved on to a new contig;
+                        // we need to write / flush the local copy of breakpoints
+                        //sg.name_to_contig.at(string(current_contig)).breakpoints = breakpoints;
+                        //breakpoints.clear();
+                    }
+                    // Add the breakpoint triggered by POS
+                    //cerr << "Creating breakpoint at [" << var->zero_based_position() <<
+                    //    ", " << var->get_reference_end(0) << "] for variant type " << var->get_info("SVTYPE") << endl;
+                    try{
+                        sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->zero_based_position());
+                        string svtype = var->get_sv_type();
+                        if (svtype != "TRA"){
+                            sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->get_reference_end(0));
+                        }
+                        else{
+                            // TODO: clean this up, and make sure that it can handle chr2, chrom2, CHR2, etc
+                            sg.name_to_contig.at(string(var->get_info("CHR2"))).breakpoints.push_back(var->get_reference_end(0));
+                        }
+                        TVCF::variant v(*var);
+                        sg.name_to_variants.at(string(var->chrom)).push_back(v);
+                    }
+                    catch (const std::out_of_range& oor){
+                        cerr << "ERROR: chrom not found: " << var->chrom << "; are you using a VCF and FASTA from the same reference?" << endl;
+                        cerr << oor.what() << endl;
+                        cerr << "EXITING" << endl;
+                        exit(9);
+                    }
+                    var_count += 1;
+                    
+                }
+            }
+
+            delete [] line;
+            delete var;
+            vfi.close();
+        }
+        else{
+            cerr << "ERROR: could not open variant file: " << var_file << endl;
+        }
+    }
+
+    cerr << "Parsed " << var_count << " variants." << endl;
+    cerr << "Created map of contig to breakpoints from variants." << endl;
+
+    for (auto c : sg.name_to_contig){
+        cerr << "Contig " << c.first << " has " << c.second.breakpoints.size() << " breakpoints." << endl;
+    }
+
+    cerr << endl << endl;
+    cerr << "Adding max-node-length breakpoints." << endl;
+
+    for (auto& c : sg.name_to_contig){
+        TFA::getSequenceLength(tf, c.first.c_str(), c.second.seqlen);
+        svaha::make_maxnode_breakpoints( c.second.seqlen, max_node_size, c.second.breakpoints);
+        c.second.breakpoints.push_back(c.second.seqlen);
+        cerr << "Contig " << c.first << " has " << c.second.breakpoints.size() << " breakpoints." << endl;
+    }
     
+    // Sort breakpoints and
+    // Uniquify breakpoints.
+    for (auto& c : sg.name_to_contig){
+        c.second.sort_bps();
+        c.second.uniquify_bps();
+    }
+
+    std::uint64_t greatest_prev_id = 0;
+    for (auto& c : sg.name_to_contig){
+
+        //spp::sparse_hash_map<std::uint64_t, svaha::node*> bp_to_node;
+        //c.second.bump_node_ids(greatest_prev_id);
+        // Get reference sequence
+        TFA::getSequence(tf, c.first.c_str(), c.second.seq);
+        std::size_t numbp = c.second.breakpoints.size();
+        
+        std::vector<TVCF::variant> contig_vars = sg.name_to_variants.at(c.first);
+        std::vector<std::uint64_t> bps = c.second.breakpoints;
+        std::vector<svaha::node*> contig_nodes;
+        svaha::node** bp_to_node = new svaha::node* [c.second.seqlen];
+        bool snptrip = false;
+        
+        std::uint64_t pos = 0;
+        for (size_t i = 0; i < bps.size(); ++i){
+
+            svaha::node* n = sg.create_node();
+            pliib::strcopy(c.first.c_str(), n->contig);
+            std::uint64_t brk = bps[i];
+            bp_to_node[pos] = n;
+            bp_to_node[brk - 1] = n;
+            pliib::strcopy(c.second.seq + pos,  brk - pos, n->seq);
+            n->seqlen = brk - pos;
+
+            if (i > 0){
+                n->prev.push_back(contig_nodes.back());
+
+                if (snptrip){
+                    int prev_ref = contig_nodes.size() - 2;
+                    while (contig_nodes[prev_ref]->contig == NULL){
+                        gfak::link_elem l;
+                        l.source_name = contig_nodes[prev_ref]->id;
+                        l.sink_name = n->id;
+                        l.source_orientation_forward = true;
+                        l.sink_orientation_forward = true;
+                        gfak::edge_elem e(l);
+                        e.id = std::to_string(sg.edge_id());
+                        e.source_begin = contig_nodes[prev_ref]->seqlen;
+                        e.source_end = contig_nodes[prev_ref]->seqlen;
+                        e.sink_begin = 0;
+                        e.sink_end = 0;
+                        cout << e.to_string_2() << endl;
+                        --prev_ref;
+                    }
+                    snptrip = false;
+                }
+
+                if ((contig_nodes.back())->contig == NULL){
+                    int prev_ref = contig_nodes.size() - 1;
+                    while (contig_nodes[prev_ref]->contig == NULL){
+                        gfak::link_elem l;
+                        l.source_name = contig_nodes[prev_ref]->id;
+                        l.sink_name = n->id;
+                        l.source_orientation_forward = true;
+                        l.sink_orientation_forward = true;
+                        gfak::edge_elem e(l);
+                        e.id = std::to_string(sg.edge_id());
+                        e.source_begin = contig_nodes[prev_ref]->seqlen;
+                        e.source_end = contig_nodes[prev_ref]->seqlen;
+                        e.sink_begin = 0;
+                        e.sink_end = 0;
+                        cout << e.to_string_2() << endl;
+                        --prev_ref;
+                    }
+                    gfak::link_elem l;
+                    l.source_name = contig_nodes[prev_ref]->id;
+                    l.sink_name = n->id;
+                    l.source_orientation_forward = true;
+                    l.sink_orientation_forward = true;
+                    gfak::edge_elem e(l);
+                    e.id = std::to_string(sg.edge_id());
+                    e.source_begin = contig_nodes[prev_ref]->seqlen;
+                    e.source_end = contig_nodes[prev_ref]->seqlen;
+                    e.sink_begin = 0;
+                    e.sink_end = 0;
+                    cout << e.to_string_2() << endl;
+                }
+                else{
+                    gfak::link_elem l;
+                    l.source_name = contig_nodes.back()->id;
+                    l.sink_name = n->id;
+                    l.source_orientation_forward = true;
+                    l.sink_orientation_forward = true;
+                    gfak::edge_elem e(l);
+                    e.id = std::to_string(sg.edge_id());
+                    e.source_begin = contig_nodes.back()->seqlen;
+                    e.source_end = contig_nodes.back()->seqlen;
+                    e.sink_begin = 0;
+                    e.sink_end = 0;
+                    cout << e.to_string_2() << endl;
+                }
+            }
+
+        }
+
+        // IFF the variant is an INS type:
+        //      get its sequence from its seq field OR an external FASTA
+        
+        // IFF the variant is a DEL or INV type:
+        //      add two edges to the nodes defining the variant,
+        //      2+ nodes in the case of FLAT alts
+        //      and 1+i nodes in the case of graphical alts
+                    
+        // IFF the variant is an INV type:
+        //      wire up its end to the previous END 
+        //      and wire up its start to the next start.
+        // IFF the variant is a TRA / breakend
+        //      emit the right edges to link from chrom to chr2
+
+
+
+        
+
+        bps.clear();
+        c.second.breakpoints.clear();
+        delete [] c.second.seq;
+    }
+
+
+    // One last time: 
+    // wire up the interchromosomal variants
+
+
+
+
+
+
+    
+
+    // Link up edges
 
     return 0;
 }
