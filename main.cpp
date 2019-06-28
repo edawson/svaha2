@@ -330,27 +330,32 @@ int main(int argc, char** argv){
                     // Add the breakpoint triggered by POS
                     //cerr << "Creating breakpoint at [" << var->zero_based_position() <<
                     //    ", " << var->get_reference_end(0) << "] for variant type " << var->get_info("SVTYPE") << endl;
-                    try{
-                        sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->zero_based_position());
-                        string svtype = var->get_sv_type();
-                        if (svtype != "TRA" && (acceptable_chroms.size() == 0 || acceptable_chroms.find(std::string(var->chrom)) != acceptable_chroms.end())){
-                            sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->get_reference_end(0));
+
+                    if (TFA::hasSequence(tf, var->chrom)){
+                        if (acceptable_chroms.size() == 0 ||
+                        acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end()){
+                            
+                            sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->zero_based_position());
+                            string svtype = var->get_sv_type();
+                            TVCF::variant v(*var);
+                            sg.name_to_variants.at(string(var->chrom)).push_back(v);
+                            if (svtype != "TRA"){
+                                sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->get_reference_end(0));
+                            }
+                            else{
+                                std::string c2 = var->get_info("CHR2");
+                                if (acceptable_chroms.size() == 0 || acceptable_chroms.find(c2) != acceptable_chroms.end()){
+                                    sg.name_to_contig.at(c2).breakpoints.push_back(var->get_reference_end(0));
+                                }
+                            }
+
                         }
-                        else if (acceptable_chroms.size() == 0 || 
-					(acceptable_chroms.find(var->get_info("CHR2")) != acceptable_chroms.end() &&
-					       	acceptable_chroms.find(std::string(var->chrom)) != acceptable_chroms.end())){
-                            // TODO: clean this up, and make sure that it can handle chr2, chrom2, CHR2, etc
-                            sg.name_to_contig.at(string(var->get_info("CHR2"))).breakpoints.push_back(var->get_reference_end(0));
+                        else{
+                            continue;
                         }
-			else{
-				continue;
-			}
-                        TVCF::variant v(*var);
-                        sg.name_to_variants.at(string(var->chrom)).push_back(v);
                     }
-                    catch (const std::out_of_range& oor){
+                    else{
                         cerr << "ERROR: chrom not found: " << var->chrom  << " or " << var->get_info("CHR2") << "; are you using a VCF and FASTA from the same reference?" << endl;
-                        cerr << oor.what() << endl;
                         cerr << "EXITING" << endl;
                         exit(9);
                     }
@@ -443,6 +448,8 @@ int main(int argc, char** argv){
 
             TVCF::variant v;
             string vtype;
+            std::uint64_t vpos;
+            std::uint64_t vend;
             if (c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end()){
                 v = c.second.bp_to_variant.at(brk);
                 vtype = v.get_info("SVTYPE");
