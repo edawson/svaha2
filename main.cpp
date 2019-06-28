@@ -87,8 +87,8 @@ struct pre_contig{
     std::uint32_t seqlen;
     std::uint64_t c_node_id = 0;
     std::uint64_t c_edge_id = 0;
-    spp::sparse_hash_map<uint64_t, node*> bp_to_node;
-    //svaha::node** bp_to_node;
+    //spp::sparse_hash_map<uint64_t, node*> bp_to_node;
+    svaha::node* bp_to_node;
     spp::sparse_hash_map<uint64_t, TVCF::variant> bp_to_variant;
     spp::sparse_hash_map<uint64_t, TVCF::variant> interchrom_variants;
     std::vector<std::uint64_t> breakpoints;
@@ -136,7 +136,7 @@ struct graph{
         return ++curr_edge_id;
     };
     spp::sparse_hash_map<string, pre_contig> name_to_contig;
-    spp::sparse_hash_map<string, vector<TVCF::variant>> name_to_variants;
+    //spp::sparse_hash_map<string, vector<TVCF::variant>> name_to_variants;
     void re_id(){
         std::uint64_t prev_id = 0;
     };
@@ -160,6 +160,7 @@ void usage(){
     cout << "-r / --reference     : The reference genome to use for construction." << endl;
     cout << "-v / --vcf           : A VCF file to use for construction." << endl;
     cout << "-b / --bed           : a bed file to restrict chromosomes to." << endl;
+    cout << "-T / --no-translocations  : ignore interchromosomal variants." << endl;
     //cout << "-t / --threads     : number of OMP threads to use in construction." << endl;
     cout << "-f / --flat          : use flat alternates (every allele is represented by at least one node)." << endl;
     cout << "-p / --paths         : output path information for variants." << endl;
@@ -174,6 +175,7 @@ int main(int argc, char** argv){
     char* bed_file = NULL;
     char* insertion_file = NULL;
     bool flat = false;
+    bool do_translocations = true;
     int threads = 1;
     int max_node_size = 128;
 
@@ -195,12 +197,13 @@ int main(int argc, char** argv){
             {"threads", required_argument, 0, 't'},
             {"max-node-size", required_argument, 0, 'm'},
             {"flat", no_argument, 0, 'f'},
+            {"no-translocations", no_argument, 0, 'T'},
             {"paths", no_argument, 0, 'p'},
             {"insertions", no_argument, 0, 'I'},
             {0,0,0,0}
         };
         int option_index = 0;
-        c = getopt_long(argc, argv, "hr:v:b:I:t:m:pf", long_options, &option_index);
+        c = getopt_long(argc, argv, "hr:v:b:TI:t:m:pf", long_options, &option_index);
         if (c == -1){
             break;
         }
@@ -220,6 +223,9 @@ int main(int argc, char** argv){
             case 'v':
                 pliib::strcopy(optarg, var_file);
                 break;
+            case 'T':
+                do_translocations = false;
+                break;
             case 'm':
                 max_node_size = atoi(optarg);
                 break;
@@ -234,8 +240,6 @@ int main(int argc, char** argv){
         }
     
     }
-
-
 
     if (ref_file == NULL){
         cerr << "ERROR: svaha2 requires a reference file." << endl;
@@ -276,31 +280,32 @@ int main(int argc, char** argv){
     // Step -1: Create a bedfile mask if needed.
     std::set<std::string> acceptable_chroms;
     if (bed_file != NULL){
-   	std::ifstream bfi(bed_file);
-	if (bfi.good()){
-		char* line = new char[100];
-		while (bfi.getline(line, 100)){
-			std::string s(line);
-			pliib::strip(s, '\n');
-			pliib::strip(s, ' ');
-			acceptable_chroms.insert(s);
-		}
-	}
-	else{
-		cerr << "Error: no bed file found [ " << bed_file << " ]." << endl;
-		exit(1);
-	}
+   	    std::ifstream bfi(bed_file);
+	    if (bfi.good()){
+		    char* line = new char[100];
+		    while (bfi.getline(line, 100)){
+			    std::string s(line);
+			    pliib::strip(s, '\n');
+			    pliib::strip(s, ' ');
+			    acceptable_chroms.insert(s);
+		    }
+	    }
+	    else{
+		    cerr << "Error: no bed file found [ " << bed_file << " ]." << endl;
+		    exit(1);
+	    }
     }
+
     // Step 0: initialize a graph to hold contig information
     svaha::graph sg;
     for (auto& x : tf.seq_to_entry){
         svaha::pre_contig p;
-	std::string name(x.first);
-	if (acceptable_chroms.size() == 0 || acceptable_chroms.find(name) != acceptable_chroms.end()){
+	    std::string name(x.first);
+	    if (acceptable_chroms.size() == 0 || acceptable_chroms.find(name) != acceptable_chroms.end()){
             sg.name_to_contig[name] = p;
-            std::vector<TVCF::variant> bps;
-            sg.name_to_variants[name] = bps;
-	}
+            //std::vector<TVCF::variant> bps;
+            //sg.name_to_variants[name] = bps;
+	    }
     }
 
     // Step one: add breakpoints for max-node-length
@@ -338,11 +343,12 @@ int main(int argc, char** argv){
                             sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->zero_based_position());
                             string svtype = var->get_sv_type();
                             TVCF::variant v(*var);
-                            sg.name_to_variants.at(string(var->chrom)).push_back(v);
+                            //sg.name_to_variants.at(string(var->chrom)).push_back(v);
+                            sg.name_to_contig.at(string(var->chrom)).bp_to_variant[v.zero_based_position()] = v;
                             if (svtype != "TRA"){
                                 sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->get_reference_end(0));
                             }
-                            else{
+                            else if (do_translocations){
                                 std::string c2 = var->get_info("CHR2");
                                 if (acceptable_chroms.size() == 0 || acceptable_chroms.find(c2) != acceptable_chroms.end()){
                                     sg.name_to_contig.at(c2).breakpoints.push_back(var->get_reference_end(0));
@@ -410,13 +416,14 @@ int main(int argc, char** argv){
         TFA::getSequence(tf, c.first.c_str(), c.second.seq);
         std::size_t numbp = c.second.breakpoints.size();
         
-        std::vector<TVCF::variant> contig_vars = sg.name_to_variants.at(c.first);
+        //std::vector<TVCF::variant> contig_vars = sg.name_to_variants.at(c.first);
         std::vector<std::uint64_t> bps = c.second.breakpoints;
-        //c.second.bp_to_node = new svaha::node* [c.second.seqlen];
+        c.second.bp_to_node = new svaha::node [c.second.seqlen];
         bool snptrip = false;
         
         std::uint64_t pos = 0;
         std::uint64_t last_ref_node_pos = 0;
+        svaha::node* prev_ref_node;
 
         //std::uint64_t total_seq = 0;
 
@@ -430,11 +437,12 @@ int main(int argc, char** argv){
             n->seqlen = brk - pos;
 
             // Emit the node, caching it if we need it later for a variant.
-            //cout << n->emit() << endl;
-            cout << n->id << " " << n->contig  << " " << n->seqlen << endl;
-            c.second.bp_to_node[pos] = n;
-            c.second.bp_to_node[brk - 1] = n;
-
+            cout << n->emit() << endl;
+            //cout << n->id << " " << n->contig  << " " << n->seqlen << endl;
+            if (c.second.bp_to_variant.find(pos) != c.second.bp_to_variant.end()){
+                c.second.bp_to_node[pos] = *n;
+                c.second.bp_to_node[brk - 1] = *n;
+            }
             // total_seq += brk - pos;
             // cout << total_seq << " " << c.second.seqlen <<endl;
 
@@ -459,6 +467,17 @@ int main(int argc, char** argv){
                 vtype = v.get_info("SVTYPE");
             }
 
+            if (vtype == "DEL"){
+                // Get the start and end of the variant
+            }
+            else if (vtype == "INS"){
+                svaha::node* ins_node = sg.create_node();
+            }
+            else if (vtype == "INV"){
+                // Get start and end of variant,
+                // then get the corresponding nodes.
+            }
+
                     // IFF the variant is an INS type:
         //      get its sequence from its seq field OR an external FASTA
         
@@ -474,25 +493,49 @@ int main(int argc, char** argv){
         //      emit the right edges to link from chrom to chr2
 
         // Wire up ref nodes on the backbone if we got 'em
+        // if (pos != 0 && 
+        //     c.second.bp_to_node[pos] != NULL &&
+        //     c.second.bp_to_node[last_ref_node_pos] != NULL &&
+        //     c.second.bp_to_node[pos]->contig != NULL &&
+        //     c.second.bp_to_node[last_ref_node_pos]->contig != NULL){
+        //     svaha::edge e(c.second.bp_to_node[last_ref_node_pos], c.second.bp_to_node[pos]);
+        //     cout << e.emit() << endl;
+        // }
+
         if (pos != 0 && 
-            c.second.bp_to_node[pos] != NULL &&
-            c.second.bp_to_node[last_ref_node_pos] != NULL &&
-            c.second.bp_to_node[pos]->contig != NULL &&
-            c.second.bp_to_node[last_ref_node_pos]->contig != NULL){
-            svaha::edge e(c.second.bp_to_node[last_ref_node_pos], c.second.bp_to_node[pos]);
-            cout << e.emit() << endl;
-        }
+          n->contig != NULL && 
+          prev_ref_node->contig != NULL ){
+              svaha::edge e(prev_ref_node, n);
+              cout << e.emit() << endl;
+          }
         //  if (pos != 0){
         //      cout << c.second.bp_to_node[pos]->id << endl;
         //      cout << c.second.bp_to_node[last_ref_node_pos]->id << endl;
         //  }
         last_ref_node_pos = pos;
+        prev_ref_node = n;
         pos = brk;
     }
     bps.clear();
     c.second.breakpoints.clear();
     delete [] c.second.seq;
 
+    }
+
+    // Handle interchromosomal variants
+    for (auto& c : sg.name_to_contig){
+        for (auto& pv : c.second.interchrom_variants){
+            try{
+                svaha::node* first;
+                first = ( sg.name_to_contig.at(std::string(pv.second.chrom)).bp_to_node + pv.second.zero_based_position() );
+                svaha::node* second;
+                second = (sg.name_to_contig.at(std::string(pv.second.get_info("CHR2"))).bp_to_node + std::stoull(pv.second.get_info("END")));
+            }
+            catch(const std::out_of_range& oor){
+
+            }
+
+        }
     }
 
     return 0;
