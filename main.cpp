@@ -26,8 +26,9 @@ struct node{
     std::string emit(){
         gfak::sequence_elem s;
         s.id = id;
-        s.name = std::to_string(id);
-        s.sequence = string(seq);
+        s.name = std::to_string(this->id);
+        s.length = this->seqlen;
+        s.sequence = string(this->seq);
         return s.to_string_2();
     };
 };
@@ -37,13 +38,37 @@ struct edge{
     // go in the default from_end/to_start way or not.
     // Inversions don't follow this pattern,
     // instead going from the start to the end, for example.
+    edge(){
+
+    };
+    edge(svaha::node*& first,
+        svaha::node*& second,
+        bool from_end = true,
+        bool to_start = true,
+        bool is_reverse = false){
+            from_node = first;
+            to_node = second;
+            this->from_end = from_end;
+            this->to_start = to_start;
+            this->is_reverse = is_reverse;
+    };
     bool from_end = true;
     bool to_start = true;
     bool is_reverse = false;
-    node* to_node;
-    node* from_node;
+    svaha::node* to_node;
+    svaha::node* from_node;
     std::string emit(){
-
+        gfak::edge_elem e;
+        e.source_name = std::to_string(from_node->id);
+        e.sink_name = std::to_string(to_node->id);
+        e.source_orientation_forward = from_end;
+        e.sink_orientation_forward = to_start;
+        e.ends.set(0,1);
+        e.ends.set(1,1);
+        e.ends.set(2,0);
+        e.ends.set(3,0);
+        e.type = 1;
+        return e.to_string_2();
     };
 };
 
@@ -60,11 +85,13 @@ struct pre_contig{
     std::uint32_t seqlen;
     std::uint64_t c_node_id = 0;
     std::uint64_t c_edge_id = 0;
-    spp::sparse_hash_map<uint64_t, node*> breakpoint_to_node;
-    std::vector<std::uint64_t> breakpoints;
-    std::vector<edge*> edges;
-    std::vector<node*> nodes;
+    //spp::sparse_hash_map<uint64_t, node*> breakpoint_to_node;
+    svaha::node** bp_to_node;
+    spp::sparse_hash_map<uint64_t, TVCF::variant> bp_to_variant;
     spp::sparse_hash_map<uint64_t, TVCF::variant> interchrom_variants;
+    std::vector<std::uint64_t> breakpoints;
+    // std::vector<edge*> edges;
+    // std::vector<node*> nodes;
 
     node* create_node(){
         node* n = new node();
@@ -114,9 +141,8 @@ struct graph{
 };
 
 void make_maxnode_breakpoints(uint64_t seqlen, uint32_t maxnodelen, std::vector<std::uint64_t>& ret){
-    
     ret.reserve(seqlen / maxnodelen);
-    for (size_t i = 0; i < seqlen; i += maxnodelen){
+    for (size_t i = maxnodelen; i < seqlen; i += maxnodelen){
         ret.push_back(i);
     }
 };
@@ -132,8 +158,8 @@ void usage(){
     cout << "-r / --reference     : The reference genome to use for construction." << endl;
     cout << "-v / --vcf           : A VCF file to use for construction." << endl;
     //cout << "-t / --threads       : number of OMP threads to use in construction." << endl;
-    //cout << "-f / --flat          : use flat alternates (every allele is represented by at least one node)." << endl;
-    //cout << "-p / --paths         : output path information for variants." << endl;
+    cout << "-f / --flat          : use flat alternates (every allele is represented by at least one node)." << endl;
+    cout << "-p / --paths         : output path information for variants." << endl;
     //cout << "-I / --insertions         : FASTA file of insertion variant sequences." << endl;
     cout << "version 0.1" << endl;
 }
@@ -143,6 +169,7 @@ int main(int argc, char** argv){
     char* ref_file = NULL;
     char* var_file = NULL;
     char* insertion_file = NULL;
+    bool flat = false;
     int threads = 1;
     int max_node_size = 128;
 
@@ -187,6 +214,9 @@ int main(int argc, char** argv){
                 break;
             case 'm':
                 max_node_size = atoi(optarg);
+                break;
+            case 'f':
+                flat = true;
                 break;
             case 'h':
                 usage();
@@ -328,102 +358,40 @@ int main(int argc, char** argv){
     }
 
     std::uint64_t greatest_prev_id = 0;
+
     for (auto& c : sg.name_to_contig){
 
-        //spp::sparse_hash_map<std::uint64_t, svaha::node*> bp_to_node;
-        //c.second.bump_node_ids(greatest_prev_id);
         // Get reference sequence
         TFA::getSequence(tf, c.first.c_str(), c.second.seq);
         std::size_t numbp = c.second.breakpoints.size();
         
         std::vector<TVCF::variant> contig_vars = sg.name_to_variants.at(c.first);
         std::vector<std::uint64_t> bps = c.second.breakpoints;
-        std::vector<svaha::node*> contig_nodes;
-        svaha::node** bp_to_node = new svaha::node* [c.second.seqlen];
+        c.second.bp_to_node = new svaha::node* [c.second.seqlen];
         bool snptrip = false;
         
         std::uint64_t pos = 0;
-        for (size_t i = 0; i < bps.size(); ++i){
+        std::uint64_t last_ref_node_pos = 0;
+        //std::uint64_t total_seq = 0;
+        for (size_t i = 0; i < bps.size() - 1; ++i){
 
             svaha::node* n = sg.create_node();
             pliib::strcopy(c.first.c_str(), n->contig);
             std::uint64_t brk = bps[i];
-            bp_to_node[pos] = n;
-            bp_to_node[brk - 1] = n;
             pliib::strcopy(c.second.seq + pos,  brk - pos, n->seq);
             n->seqlen = brk - pos;
+            // Emit the node, caching it if we need it later for a variant.
+            cout << n->emit() << endl;
+            // total_seq += brk - pos;
+            // cout << total_seq << " " << c.second.seqlen <<endl;
+            c.second.bp_to_node[pos] = n;
+            c.second.bp_to_node[brk - 1] = n;
 
-            if (i > 0){
-                n->prev.push_back(contig_nodes.back());
 
-                if (snptrip){
-                    int prev_ref = contig_nodes.size() - 2;
-                    while (contig_nodes[prev_ref]->contig == NULL){
-                        gfak::link_elem l;
-                        l.source_name = contig_nodes[prev_ref]->id;
-                        l.sink_name = n->id;
-                        l.source_orientation_forward = true;
-                        l.sink_orientation_forward = true;
-                        gfak::edge_elem e(l);
-                        e.id = std::to_string(sg.edge_id());
-                        e.source_begin = contig_nodes[prev_ref]->seqlen;
-                        e.source_end = contig_nodes[prev_ref]->seqlen;
-                        e.sink_begin = 0;
-                        e.sink_end = 0;
-                        cout << e.to_string_2() << endl;
-                        --prev_ref;
-                    }
-                    snptrip = false;
-                }
+            //cout << "pos: " << pos << " brk: " << brk << endl;
 
-                if ((contig_nodes.back())->contig == NULL){
-                    int prev_ref = contig_nodes.size() - 1;
-                    while (contig_nodes[prev_ref]->contig == NULL){
-                        gfak::link_elem l;
-                        l.source_name = contig_nodes[prev_ref]->id;
-                        l.sink_name = n->id;
-                        l.source_orientation_forward = true;
-                        l.sink_orientation_forward = true;
-                        gfak::edge_elem e(l);
-                        e.id = std::to_string(sg.edge_id());
-                        e.source_begin = contig_nodes[prev_ref]->seqlen;
-                        e.source_end = contig_nodes[prev_ref]->seqlen;
-                        e.sink_begin = 0;
-                        e.sink_end = 0;
-                        cout << e.to_string_2() << endl;
-                        --prev_ref;
-                    }
-                    gfak::link_elem l;
-                    l.source_name = contig_nodes[prev_ref]->id;
-                    l.sink_name = n->id;
-                    l.source_orientation_forward = true;
-                    l.sink_orientation_forward = true;
-                    gfak::edge_elem e(l);
-                    e.id = std::to_string(sg.edge_id());
-                    e.source_begin = contig_nodes[prev_ref]->seqlen;
-                    e.source_end = contig_nodes[prev_ref]->seqlen;
-                    e.sink_begin = 0;
-                    e.sink_end = 0;
-                    cout << e.to_string_2() << endl;
-                }
-                else{
-                    gfak::link_elem l;
-                    l.source_name = contig_nodes.back()->id;
-                    l.sink_name = n->id;
-                    l.source_orientation_forward = true;
-                    l.sink_orientation_forward = true;
-                    gfak::edge_elem e(l);
-                    e.id = std::to_string(sg.edge_id());
-                    e.source_begin = contig_nodes.back()->seqlen;
-                    e.source_end = contig_nodes.back()->seqlen;
-                    e.sink_begin = 0;
-                    e.sink_end = 0;
-                    cout << e.to_string_2() << endl;
-                }
-            }
 
-        }
-
+            
         // IFF the variant is an INS type:
         //      get its sequence from its seq field OR an external FASTA
         
@@ -437,28 +405,38 @@ int main(int argc, char** argv){
         //      and wire up its start to the next start.
         // IFF the variant is a TRA / breakend
         //      emit the right edges to link from chrom to chr2
+            TVCF::variant v;
+            string vtype;
+            if (c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end()){
+                v = c.second.bp_to_variant.at(brk);
+                vtype = v.get_info("SVTYPE");
+            }
+            else if (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end()){
+                v = c.second.interchrom_variants.at(brk);
+                vtype = v.get_info("SVTYPE");
+            }
 
-
-
-        
-
-        bps.clear();
-        c.second.breakpoints.clear();
-        delete [] c.second.seq;
+        // Wire up ref nodes on the backbone if we got 'em
+        if (pos != 0 && 
+            c.second.bp_to_node[pos] != NULL &&
+            c.second.bp_to_node[last_ref_node_pos] != NULL &&
+            c.second.bp_to_node[pos]->contig != NULL &&
+            c.second.bp_to_node[last_ref_node_pos]->contig != NULL){
+            svaha::edge e(c.second.bp_to_node[pos], c.second.bp_to_node[last_ref_node_pos]);
+            cout << e.emit() << endl;
+        }
+        //  if (pos != 0){
+        //      cout << c.second.bp_to_node[pos]->id << endl;
+        //      cout << c.second.bp_to_node[last_ref_node_pos]->id << endl;
+        //  }
+        last_ref_node_pos = pos;
+        pos = brk;
     }
+    bps.clear();
+    c.second.breakpoints.clear();
+    delete [] c.second.seq;
 
-
-    // One last time: 
-    // wire up the interchromosomal variants
-
-
-
-
-
-
-    
-
-    // Link up edges
+    }
 
     return 0;
 }
