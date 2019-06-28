@@ -5,7 +5,7 @@
 #include <map>
 #include <set>
 #include "pliib.hpp"
-#include "tinyFA.hpp"
+#include "tinyfa.hpp"
 #include "tinyVCF.hpp"
 #include "spp.h"
 #include "gfakluge.hpp"
@@ -159,7 +159,8 @@ void usage(){
     cout << "-m / --max-node-size : maximum length (in basepairs) of a node in the graph." << endl;
     cout << "-r / --reference     : The reference genome to use for construction." << endl;
     cout << "-v / --vcf           : A VCF file to use for construction." << endl;
-    //cout << "-t / --threads       : number of OMP threads to use in construction." << endl;
+    cout << "-b / --bed           : a bed file to restrict chromosomes to." << endl;
+    //cout << "-t / --threads     : number of OMP threads to use in construction." << endl;
     cout << "-f / --flat          : use flat alternates (every allele is represented by at least one node)." << endl;
     cout << "-p / --paths         : output path information for variants." << endl;
     //cout << "-I / --insertions         : FASTA file of insertion variant sequences." << endl;
@@ -170,6 +171,7 @@ int main(int argc, char** argv){
 
     char* ref_file = NULL;
     char* var_file = NULL;
+    char* bed_file = NULL;
     char* insertion_file = NULL;
     bool flat = false;
     int threads = 1;
@@ -189,6 +191,7 @@ int main(int argc, char** argv){
             {"help", no_argument, 0, 'h'},
             {"reference", required_argument, 0, 'r'},
             {"vcf", required_argument, 0, 'v'},
+            {"bed", required_argument, 0, 'b'},
             {"threads", required_argument, 0, 't'},
             {"max-node-size", required_argument, 0, 'm'},
             {"flat", no_argument, 0, 'f'},
@@ -197,7 +200,7 @@ int main(int argc, char** argv){
             {0,0,0,0}
         };
         int option_index = 0;
-        c = getopt_long(argc, argv, "hr:v:I:t:m:pf", long_options, &option_index);
+        c = getopt_long(argc, argv, "hr:v:b:I:t:m:pf", long_options, &option_index);
         if (c == -1){
             break;
         }
@@ -208,6 +211,9 @@ int main(int argc, char** argv){
             case 'r':
                 pliib::strcopy(optarg, ref_file);
                 break;
+	    case 'b':
+		pliib::strcopy(optarg, bed_file);
+		break;
             case 'I':
                 pliib::strcopy(optarg, insertion_file);
                 break;
@@ -266,13 +272,35 @@ int main(int argc, char** argv){
             cerr << "Parsed fasta index with " << tf.seq_to_entry.size() << " entries." << endl;
         }
     }
+
+    // Step -1: Create a bedfile mask if needed.
+    std::set<std::string> acceptable_chroms;
+    if (bed_file != NULL){
+   	std::ifstream bfi(bed_file);
+	if (bfi.good()){
+		char* line = new char[100];
+		while (bfi.getline(line, 100)){
+			std::string s(line);
+			pliib::strip(s, '\n');
+			pliib::strip(s, ' ');
+			acceptable_chroms.insert(s);
+		}
+	}
+	else{
+		cerr << "Error: no bed file found [ " << bed_file << " ]." << endl;
+		exit(1);
+	}
+    }
     // Step 0: initialize a graph to hold contig information
     svaha::graph sg;
     for (auto& x : tf.seq_to_entry){
         svaha::pre_contig p;
-        sg.name_to_contig[string(x.first)] = p;
-        std::vector<TVCF::variant> bps;
-        sg.name_to_variants[string(x.first)] = bps;
+	std::string name(x.first);
+	if (acceptable_chroms.size() == 0 || acceptable_chroms.find(name) != acceptable_chroms.end()){
+            sg.name_to_contig[name] = p;
+            std::vector<TVCF::variant> bps;
+            sg.name_to_variants[name] = bps;
+	}
     }
 
     // Step one: add breakpoints for max-node-length
@@ -305,18 +333,23 @@ int main(int argc, char** argv){
                     try{
                         sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->zero_based_position());
                         string svtype = var->get_sv_type();
-                        if (svtype != "TRA"){
+                        if (svtype != "TRA" && (acceptable_chroms.size() == 0 || acceptable_chroms.find(std::string(var->chrom)) != acceptable_chroms.end())){
                             sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->get_reference_end(0));
                         }
-                        else{
+                        else if (acceptable_chroms.size() == 0 || 
+					(acceptable_chroms.find(var->get_info("CHR2")) != acceptable_chroms.end() &&
+					       	acceptable_chroms.find(std::string(var->chrom)) != acceptable_chroms.end())){
                             // TODO: clean this up, and make sure that it can handle chr2, chrom2, CHR2, etc
                             sg.name_to_contig.at(string(var->get_info("CHR2"))).breakpoints.push_back(var->get_reference_end(0));
                         }
+			else{
+				continue;
+			}
                         TVCF::variant v(*var);
                         sg.name_to_variants.at(string(var->chrom)).push_back(v);
                     }
                     catch (const std::out_of_range& oor){
-                        cerr << "ERROR: chrom not found: " << var->chrom << "; are you using a VCF and FASTA from the same reference?" << endl;
+                        cerr << "ERROR: chrom not found: " << var->chrom  << " or " << var->get_info("CHR2") << "; are you using a VCF and FASTA from the same reference?" << endl;
                         cerr << oor.what() << endl;
                         cerr << "EXITING" << endl;
                         exit(9);
@@ -387,6 +420,7 @@ int main(int argc, char** argv){
             svaha::node* n = sg.create_node();
             pliib::strcopy(c.first.c_str(), n->contig);
             std::uint64_t brk = bps[i];
+	    //cerr << c.second.seqlen << " " << pos << " " << brk - pos << endl;
             pliib::strcopy(c.second.seq + pos,  brk - pos, n->seq);
             n->seqlen = brk - pos;
 
