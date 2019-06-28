@@ -356,6 +356,7 @@ int main(int argc, char** argv){
         c.second.sort_bps();
         c.second.uniquify_bps();
     }
+    cerr << "Sorted and uniquified breakpoints" << endl;
 
     std::uint64_t greatest_prev_id = 0;
 
@@ -372,7 +373,9 @@ int main(int argc, char** argv){
         
         std::uint64_t pos = 0;
         std::uint64_t last_ref_node_pos = 0;
+
         //std::uint64_t total_seq = 0;
+
         for (size_t i = 0; i < bps.size() - 1; ++i){
 
             svaha::node* n = sg.create_node();
@@ -380,12 +383,17 @@ int main(int argc, char** argv){
             std::uint64_t brk = bps[i];
             pliib::strcopy(c.second.seq + pos,  brk - pos, n->seq);
             n->seqlen = brk - pos;
+
             // Emit the node, caching it if we need it later for a variant.
-            cout << n->emit() << endl;
-            // total_seq += brk - pos;
-            // cout << total_seq << " " << c.second.seqlen <<endl;
+            //cout << n->emit() << endl;
+            cout << n->id << " " << n->contig  << " " << n->seqlen << endl;
             c.second.bp_to_node[pos] = n;
             c.second.bp_to_node[brk - 1] = n;
+
+            // total_seq += brk - pos;
+            // cout << total_seq << " " << c.second.seqlen <<endl;
+
+
 
 
             //cout << "pos: " << pos << " brk: " << brk << endl;
@@ -422,7 +430,7 @@ int main(int argc, char** argv){
             c.second.bp_to_node[last_ref_node_pos] != NULL &&
             c.second.bp_to_node[pos]->contig != NULL &&
             c.second.bp_to_node[last_ref_node_pos]->contig != NULL){
-            svaha::edge e(c.second.bp_to_node[pos], c.second.bp_to_node[last_ref_node_pos]);
+            svaha::edge e(c.second.bp_to_node[last_ref_node_pos], c.second.bp_to_node[pos]);
             cout << e.emit() << endl;
         }
         //  if (pos != 0){
