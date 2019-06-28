@@ -87,8 +87,8 @@ struct pre_contig{
     std::uint32_t seqlen;
     std::uint64_t c_node_id = 0;
     std::uint64_t c_edge_id = 0;
-    //spp::sparse_hash_map<uint64_t, node*> breakpoint_to_node;
-    svaha::node** bp_to_node;
+    spp::sparse_hash_map<uint64_t, node*> bp_to_node;
+    //svaha::node** bp_to_node;
     spp::sparse_hash_map<uint64_t, TVCF::variant> bp_to_variant;
     spp::sparse_hash_map<uint64_t, TVCF::variant> interchrom_variants;
     std::vector<std::uint64_t> breakpoints;
@@ -412,7 +412,7 @@ int main(int argc, char** argv){
         
         std::vector<TVCF::variant> contig_vars = sg.name_to_variants.at(c.first);
         std::vector<std::uint64_t> bps = c.second.breakpoints;
-        c.second.bp_to_node = new svaha::node* [c.second.seqlen];
+        //c.second.bp_to_node = new svaha::node* [c.second.seqlen];
         bool snptrip = false;
         
         std::uint64_t pos = 0;
