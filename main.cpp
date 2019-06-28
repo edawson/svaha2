@@ -365,6 +365,10 @@ int main(int argc, char** argv){
     for (auto& c : sg.name_to_contig){
 
         // Get reference sequence
+        if (! TFA::hasSequence(tf, c.first.c_str())){
+            cerr << "No sequence found for " << c.first << endl;
+            exit(1);
+        }
         TFA::getSequence(tf, c.first.c_str(), c.second.seq);
         std::size_t numbp = c.second.breakpoints.size();
         
