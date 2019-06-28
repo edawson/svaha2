@@ -17,12 +17,14 @@ namespace svaha {
 struct node{
     std::uint64_t id;
     char* contig = NULL;
+    char** paths = NULL;
+    std::uint8_t num_paths;
     char* seq = NULL;
     std::uint32_t seqlen;
     std::uint64_t contig_seq_start;
     std::uint64_t contig_seq_end;
-    std::vector<node*> prev;
-    std::vector<node*> next;
+    // std::vector<node*> prev;
+    // std::vector<node*> next;
     std::string emit(){
         gfak::sequence_elem s;
         s.id = id;
@@ -400,7 +402,19 @@ int main(int argc, char** argv){
 
 
             
-        // IFF the variant is an INS type:
+
+            TVCF::variant v;
+            string vtype;
+            if (c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end()){
+                v = c.second.bp_to_variant.at(brk);
+                vtype = v.get_info("SVTYPE");
+            }
+            else if (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end()){
+                v = c.second.interchrom_variants.at(brk);
+                vtype = v.get_info("SVTYPE");
+            }
+
+                    // IFF the variant is an INS type:
         //      get its sequence from its seq field OR an external FASTA
         
         // IFF the variant is a DEL or INV type:
@@ -413,16 +427,6 @@ int main(int argc, char** argv){
         //      and wire up its start to the next start.
         // IFF the variant is a TRA / breakend
         //      emit the right edges to link from chrom to chr2
-            TVCF::variant v;
-            string vtype;
-            if (c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end()){
-                v = c.second.bp_to_variant.at(brk);
-                vtype = v.get_info("SVTYPE");
-            }
-            else if (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end()){
-                v = c.second.interchrom_variants.at(brk);
-                vtype = v.get_info("SVTYPE");
-            }
 
         // Wire up ref nodes on the backbone if we got 'em
         if (pos != 0 && 
