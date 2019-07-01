@@ -342,9 +342,9 @@ int main(int argc, char** argv){
                             
                             sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->zero_based_position());
                             string svtype = var->get_sv_type();
-                            TVCF::variant v(*var);
+                            //TVCF::variant v(*var);
                             //sg.name_to_variants.at(string(var->chrom)).push_back(v);
-                            sg.name_to_contig.at(string(var->chrom)).bp_to_variant[v.zero_based_position()] = v;
+                            sg.name_to_contig.at(string(var->chrom)).bp_to_variant[var->zero_based_position()] = *var;
                             if (svtype != "TRA"){
                                 sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->get_reference_end(0));
                             }

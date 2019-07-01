@@ -29,6 +29,16 @@ namespace TVCF{
 
         };
 
+	~variant(){
+	  //delete [] chrom;
+	  //delete [] id;
+	  //delete [] ref;
+	  //for (auto& i : alt){
+	  //  delete [] i;
+	  //}
+
+	}
+
         variant(const variant& h){
             pliib::strcopy(h.chrom, this->chrom);
             this->pos = h.pos;
