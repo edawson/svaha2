@@ -1,5 +1,5 @@
 CXX:=g++
-CXXFLAGS:= -O1 -g -fopenmp -mtune=native -march=native
+CXXFLAGS:= -O0 -g -fopenmp -ggdb
 LD_INC_FLAGS:= -I./tinyFA -I./tinyFA/pliib/ -I./gfakluge/src -I./sparsepp/sparsepp -I./tinyVCF -I./tinyVCF/digestpp
 LD_LIB_FLAGS:=
 
