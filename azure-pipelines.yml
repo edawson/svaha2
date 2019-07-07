@@ -16,6 +16,6 @@ strategy:
   maxParallel: 2
 
 pool:
-    vmImage: "$(imageName)"
+  vmImage: "$(imageName)"
 
-script: git submodule update --init --recursive && make
+- script: git submodule update --init --recursive && make
