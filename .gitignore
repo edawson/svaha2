@@ -1,0 +1,6 @@
+*.dsym*
+svaha2
+.DS_Store
+*.gfa
+*.vg
+*.txt
