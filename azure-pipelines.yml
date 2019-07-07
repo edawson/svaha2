@@ -6,10 +6,19 @@
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-1804'
-
-steps:
-- script: |
+jobs:
+- job: Linux
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - script: |
     make
-  displayName: 'make'
+  displayName: 'make : Ubuntu 16.04'
+
+- job: macOS
+pool:
+    vmImage: 'macOS-10.14'
+  steps:
+  - script: |
+    make
+  displayName: 'make : Mac OS 10.14'
