@@ -13,7 +13,7 @@ jobs:
   steps:
   - script: |
     make
-  displayName: 'make : Ubuntu 16.04'
+  displayName: 'make_Ubuntu_16.04'
 
 - job: macOS
 pool:
@@ -21,4 +21,4 @@ pool:
   steps:
   - script: |
     make
-  displayName: 'make : Mac OS 10.14'
+  displayName: 'make_OSX_10.14'
