@@ -89,8 +89,8 @@ struct pre_contig{
     std::uint64_t c_edge_id = 0;
     //spp::sparse_hash_map<uint64_t, node*> bp_to_node;
     svaha::node* bp_to_node;
-    spp::sparse_hash_map<uint64_t, TVCF::variant> bp_to_variant;
-    spp::sparse_hash_map<uint64_t, TVCF::variant> interchrom_variants;
+    spp::sparse_hash_map<uint64_t, TVCF::variant*> bp_to_variant;
+    spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
     std::vector<std::uint64_t> breakpoints;
     // std::vector<edge*> edges;
     // std::vector<node*> nodes;
@@ -164,7 +164,7 @@ void usage(){
     //cout << "-t / --threads     : number of OMP threads to use in construction." << endl;
     cout << "-f / --flat          : use flat alternates (every allele is represented by at least one node)." << endl;
     cout << "-p / --paths         : output path information for variants." << endl;
-    //cout << "-I / --insertions         : FASTA file of insertion variant sequences." << endl;
+    cout << "-I / --insertions         : FASTA file of insertion variant sequences." << endl;
     cout << "version 0.1" << endl;
 }
 
@@ -295,22 +295,26 @@ int main(int argc, char** argv){
 		    exit(1);
 	    }
     }
+    else{
+        for (auto x : tf.seq_to_entry){
+            acceptable_chroms.insert(std::string(x.first));
+        }
+    }
 
     // Step 0: initialize a graph to hold contig information
     svaha::graph sg;
     for (auto& x : tf.seq_to_entry){
         svaha::pre_contig p;
 	    std::string name(x.first);
-	    if (acceptable_chroms.size() == 0 || acceptable_chroms.find(name) != acceptable_chroms.end()){
+	    if (acceptable_chroms.find(name) != acceptable_chroms.end()){
             sg.name_to_contig[name] = p;
             //std::vector<TVCF::variant> bps;
             //sg.name_to_variants[name] = bps;
 	    }
     }
 
-    // Step one: add breakpoints for max-node-length
-     
 
+    // Step 1: add variants from the breakpoint file (i.e. a VCF)
     std::uint64_t var_count = 0;
     
     if (var_file != NULL){
@@ -322,35 +326,45 @@ int main(int argc, char** argv){
             //std::vector<std::uint64_t> breakpoints;
             int mxlsz = 2000;
             char* line = new char[mxlsz];
-            TVCF::variant* var = new TVCF::variant();
+            
             while (vfi.getline(line, mxlsz)){
                 if (line[0] != '#'){
+                    TVCF::variant* var = new TVCF::variant();
                     TVCF::parse_variant_line(line, var);
-                    if (current_contig != NULL && current_contig != var->chrom){
+
+                    //if (current_contig != NULL && current_contig != var->chrom){
                         // We've moved on to a new contig;
                         // we need to write / flush the local copy of breakpoints
                         //sg.name_to_contig.at(string(current_contig)).breakpoints = breakpoints;
                         //breakpoints.clear();
-                    }
+                    //}
                     // Add the breakpoint triggered by POS
                     //cerr << "Creating breakpoint at [" << var->zero_based_position() <<
                     //    ", " << var->get_reference_end(0) << "] for variant type " << var->get_info("SVTYPE") << endl;
 
                     if (TFA::hasSequence(tf, var->chrom)){
-                        if (acceptable_chroms.size() == 0 ||
-                        acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end()){
-                            
-                            sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->zero_based_position());
+                        if (acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end()){
+                            std::uint64_t on_chrom_position = var->zero_based_position();
                             string svtype = var->get_sv_type();
+                            // Correct for flat alleles
+                            if (flat && (svtype == "DEL" || svtype == "INS")){
+                                on_chrom_position = on_chrom_position - 1;
+                            }
+                            sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(on_chrom_position);
+
                             //TVCF::variant v(*var);
                             //sg.name_to_variants.at(string(var->chrom)).push_back(v);
-                            sg.name_to_contig.at(string(var->chrom)).bp_to_variant[var->zero_based_position()] = *var;
+                            sg.name_to_contig.at(string(var->chrom)).bp_to_variant[on_chrom_position] = var;
                             if (svtype != "TRA"){
-                                sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(var->get_reference_end(0));
+                                std::uint64_t svend = var->get_reference_end(0);
+                                if (svtype == "INS"){
+                                    svend = on_chrom_position + 1;
+                                }
+                                sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(svend);
                             }
                             else if (do_translocations){
                                 std::string c2 = var->get_info("CHR2");
-                                if (acceptable_chroms.size() == 0 || acceptable_chroms.find(c2) != acceptable_chroms.end()){
+                                if (acceptable_chroms.find(c2) != acceptable_chroms.end()){
                                     sg.name_to_contig.at(c2).breakpoints.push_back(var->get_reference_end(0));
                                 }
                             }
@@ -371,7 +385,7 @@ int main(int argc, char** argv){
             }
 
             delete [] line;
-            delete var;
+            //delete var;
             vfi.close();
         }
         else{
@@ -454,24 +468,22 @@ int main(int argc, char** argv){
 
             
 
-            TVCF::variant v;
+            TVCF::variant* v;
             string vtype;
             std::uint64_t vpos;
             std::uint64_t vend;
-            if (c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end()){
+            if (c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end() ||
+            (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end() && do_translocations)){
                 v = c.second.bp_to_variant.at(brk);
-                vtype = v.get_info("SVTYPE");
-            }
-            else if (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end()){
-                v = c.second.interchrom_variants.at(brk);
-                vtype = v.get_info("SVTYPE");
+                vtype = v->get_info("SVTYPE");
             }
 
             if (vtype == "DEL"){
                 // Get the start and end of the variant
             }
-            else if (vtype == "INS"){
+            else if (vtype == "INS" || vtype == ""){
                 svaha::node* ins_node = sg.create_node();
+                
             }
             else if (vtype == "INV"){
                 // Get start and end of variant,
@@ -527,12 +539,15 @@ int main(int argc, char** argv){
         for (auto& pv : c.second.interchrom_variants){
             try{
                 svaha::node* first;
-                first = ( sg.name_to_contig.at(std::string(pv.second.chrom)).bp_to_node + pv.second.zero_based_position() );
+                first = ( sg.name_to_contig.at(std::string(pv.second->chrom)).bp_to_node + pv.second->zero_based_position() );
                 svaha::node* second;
-                second = (sg.name_to_contig.at(std::string(pv.second.get_info("CHR2"))).bp_to_node + std::stoull(pv.second.get_info("END")));
+                second = (sg.name_to_contig.at(std::string(pv.second->get_info("CHR2"))).bp_to_node + std::stoull(pv.second->get_info("END")));
+                svaha::edge e(first, second);
+                cout << e.emit() << endl;
             }
             catch(const std::out_of_range& oor){
-
+                cerr << "Out of range error: interchromosomal variants." << endl;
+                cerr << oor.what() << endl;
             }
 
         }
