@@ -5,7 +5,7 @@
 #include <map>
 #include <set>
 #include "pliib.hpp"
-#include "tinyfa.hpp"
+#include "tinyFA.hpp"
 #include "tinyVCF.hpp"
 #include "spp.h"
 #include "gfakluge.hpp"
