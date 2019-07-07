@@ -4,3 +4,9 @@ svaha2
 *.gfa
 *.vg
 *.txt
+.vscode
+*.fa
+*.fasta
+*.fastq
+*.vcf
+*.bed
