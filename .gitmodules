@@ -7,3 +7,6 @@
 [submodule "sparsepp"]
 	path = sparsepp
 	url = https://github.com/edawson/sparsepp
+[submodule "tinyVCF"]
+	path = tinyVCF
+	url = https://github.com/edawson/tinyVCF
