@@ -1,8 +1,10 @@
 svaha2: linear time, low-memory construction of variation graphs
 ----------------------------------------------------------------
 Eric T Dawson  
-June 2019
+June 2019  
 
+
+[![Build Status](https://dev.azure.com/ericco92/ericco92/_apis/build/status/edawson.svaha2?branchName=master)](https://dev.azure.com/ericco92/ericco92/_build/latest?definitionId=1&branchName=master)
 
 ## Intro
 svaha2 is a reimplementation of the [svaha](https://github.com/edawson/svaha) algorithm for
