@@ -11,12 +11,10 @@ jobs:
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
-  - script: |
-    make
+  - script: make
 
 - job: macOS
-pool:
+  pool:
     vmImage: 'macOS-10.14'
   steps:
-  - script: |
-    make
+  - script: make
