@@ -18,4 +18,4 @@ strategy:
 pool:
     vmImage: "$(imageName)"
 
-- script: git submodule update --init --recursive && make
+script: git submodule update --init --recursive && make
