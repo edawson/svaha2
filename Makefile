@@ -1,5 +1,5 @@
 CXX:=g++
-CXXFLAGS:= -O0 -g -fopenmp -ggdb
+CXXFLAGS:= -O0 -g -fopenmp -ggdb -std=c++11
 LD_INC_FLAGS:= -I./tinyFA -I./tinyFA/pliib/ -I./gfakluge/src -I./sparsepp/sparsepp -I./tinyVCF -I./tinyVCF/Hash-master/src
 LD_LIB_FLAGS:=
 
