@@ -7,15 +7,8 @@ trigger:
 - master
 - releases/*
 
-strategy:
-  matrix:
-    linux:
-      imageName: 'ubuntu-16.04'
-    mac:
-      imageName: 'macOS-10.14'
-  maxParallel: 2
 
 pool:
-  vmImage: "$(imageName)"
-
-script: git submodule update --init --recursive && make
+  vmImage: 'ubuntu-16.04'
+steps:
+  - script: git submodule update --init --recursive && make
