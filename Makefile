@@ -1,6 +1,6 @@
 CXX:=g++
 CXXFLAGS:= -O0 -g -fopenmp -ggdb -std=c++14
-LD_INC_FLAGS:= -I./tinyFA -I./tinyFA/pliib/ -I./gfakluge/src -I./sparsepp/sparsepp -I./tinyVCF -I./tinyVCF/Hash-master/src
+LD_INC_FLAGS:=  -I./gfakluge/src -I./sparsepp/sparsepp -I./tinyVCF -I./tinyVCF/Hash-master/src -I./tinyFA -I./tinyFA/pliib/
 LD_LIB_FLAGS:=
 
 EXEC:=svaha2
