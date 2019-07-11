@@ -5,7 +5,6 @@
 
 trigger:
 - master
-- dev
 - releases/*
 
 
