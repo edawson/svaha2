@@ -101,11 +101,11 @@ namespace svaha {
         // std::vector<edge*> edges;
         // std::vector<node*> nodes;
 
-        node* create_node(){
-            node* n = new node();
-            n->id = ++c_node_id;
-            return n;
-        };
+        // node* create_node(){
+        //     node* n = new node();
+        //     n->id = ++c_node_id;
+        //     return n;
+        // };
         void bump_node_ids(std::uint64_t bumpsz){
             c_node_id = bumpsz;
         };
@@ -482,20 +482,21 @@ int main(int argc, char** argv){
             string vtype;
             std::uint64_t vpos;
             std::uint64_t vend;
-            if (c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end() ||
-                    (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end() && do_translocations)){
+            bool position_is_variant = c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end() ||
+                    (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end() && do_translocations);
+            if (position_is_variant){
                 v = c.second.bp_to_variant.at(brk);
                 vtype = v->get_info("SVTYPE");
             }
 
-            if (vtype == "DEL"){
+            if (position_is_variant && vtype == "DEL"){
                 // Get the start and end of the variant
             }
-            else if (vtype == "INS" || vtype == ""){
-                svaha::node* ins_node = sg.create_node();
+            else if (position_is_variant && vtype == "INS" || vtype == ""){
+                //svaha::node* ins_node = sg.create_node();
 
             }
-            else if (vtype == "INV"){
+            else if (position_is_variant && vtype == "INV"){
                 // Get start and end of variant,
                 // then get the corresponding nodes.
             }
