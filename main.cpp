@@ -14,6 +14,7 @@ using namespace std;
 
 namespace svaha {
 
+
     struct node{
         std::uint64_t id;
         char* contig = nullptr;
@@ -46,7 +47,16 @@ namespace svaha {
         // go in the default from_end/to_start way or not.
         // Inversions don't follow this pattern,
         // instead going from the start to the end, for example.
+        bool from_end = true;
+        bool to_start = true;
+        bool is_reverse = false;
+        svaha::node* to_node;
+        svaha::node* from_node;
         edge(){
+            from_node = nullptr;
+            to_node = nullptr;
+        };
+        ~edge(){
 
         };
         edge(svaha::node*& first,
@@ -60,11 +70,6 @@ namespace svaha {
             this->to_start = to_start;
             this->is_reverse = is_reverse;
         };
-        bool from_end = true;
-        bool to_start = true;
-        bool is_reverse = false;
-        svaha::node* to_node;
-        svaha::node* from_node;
         std::string emit(){
             gfak::edge_elem e;
             e.source_name = std::to_string(from_node->id);
@@ -98,6 +103,17 @@ namespace svaha {
         spp::sparse_hash_map<uint64_t, TVCF::variant*> bp_to_variant;
         spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
         std::vector<std::uint64_t> breakpoints;
+
+        ~pre_contig(){
+            pliib::strdelete(seq);
+            if (bp_to_node != nullptr){
+                delete [] bp_to_node;
+            }
+        };
+        void clear_seq(){
+            pliib::strdelete(seq);
+            this->seq = nullptr;
+        };
         // std::vector<edge*> edges;
         // std::vector<node*> nodes;
 
@@ -446,7 +462,7 @@ int main(int argc, char** argv){
 
         std::uint64_t pos = 0;
         std::uint64_t last_ref_node_pos = 0;
-        svaha::node* prev_ref_node;
+        svaha::node* prev_ref_node = nullptr;
 
         //std::uint64_t total_seq = 0;
 
@@ -463,20 +479,6 @@ int main(int argc, char** argv){
             cout << n->emit() << endl;
             pliib::strdelete(n->seq);
             //cout << n->id << " " << n->contig  << " " << n->seqlen << endl;
-            if (c.second.bp_to_variant.find(pos) != c.second.bp_to_variant.end()){
-                c.second.bp_to_node[pos] = *n;
-                c.second.bp_to_node[brk - 1] = *n;
-            }
-            // total_seq += brk - pos;
-            // cout << total_seq << " " << c.second.seqlen <<endl;
-
-
-
-
-            //cout << "pos: " << pos << " brk: " << brk << endl;
-
-
-
 
             TVCF::variant* v;
             string vtype;
@@ -485,21 +487,11 @@ int main(int argc, char** argv){
             bool position_is_variant = c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end() ||
                     (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end() && do_translocations);
             if (position_is_variant){
+                c.second.bp_to_node[pos] = *n;
+                c.second.bp_to_node[brk - 1] = *n;
                 v = c.second.bp_to_variant.at(brk);
                 vtype = v->get_info("SVTYPE");
-            }
 
-            if (position_is_variant && vtype == "DEL"){
-                // Get the start and end of the variant
-            }
-            else if (position_is_variant && vtype == "INS" || vtype == ""){
-                //svaha::node* ins_node = sg.create_node();
-
-            }
-            else if (position_is_variant && vtype == "INV"){
-                // Get start and end of variant,
-                // then get the corresponding nodes.
-            }
 
             // IFF the variant is an INS type:
             //      get its sequence from its seq field OR an external FASTA
@@ -524,45 +516,66 @@ int main(int argc, char** argv){
             //     svaha::edge e(c.second.bp_to_node[last_ref_node_pos], c.second.bp_to_node[pos]);
             //     cout << e.emit() << endl;
             // }
+                if (vtype == "DEL"){
+                // Get the start and end of the variant
+                }
+                else if (vtype == "INS" || vtype == ""){
+                //svaha::node* ins_node = sg.create_node();
+                }
+                else if (vtype == "INV"){
+                // Get start and end of variant,
+                // then get the corresponding nodes.
+                }
+            }
+            // total_seq += brk - pos;
+            // cout << total_seq << " " << c.second.seqlen <<endl;
 
-            if (pos != 0 && 
+
+
+
+            //cout << "pos: " << pos << " brk: " << brk << endl;
+
+
+            if (pos > 0 && 
                     n->contig != NULL && 
                     prev_ref_node->contig != NULL ){
                 svaha::edge e(prev_ref_node, n);
                 cout << e.emit() << endl;
+                delete prev_ref_node;
+                prev_ref_node = n;
             }
             //  if (pos != 0){
             //      cout << c.second.bp_to_node[pos]->id << endl;
             //      cout << c.second.bp_to_node[last_ref_node_pos]->id << endl;
             //  }
-            last_ref_node_pos = pos;
-            prev_ref_node = n;
+            //last_ref_node_pos = pos;
+
             pos = brk;
         }
         bps.clear();
         c.second.breakpoints.clear();
-        pliib::strdelete(c.second.seq);
+        c.second.clear_seq();
 
     }
 
-    // Handle interchromosomal variants
-    for (auto& c : sg.name_to_contig){
-        for (auto& pv : c.second.interchrom_variants){
-            try{
-                svaha::node* first;
-                first = ( sg.name_to_contig.at(std::string(pv.second->chrom)).bp_to_node + pv.second->zero_based_position() );
-                svaha::node* second;
-                second = (sg.name_to_contig.at(std::string(pv.second->get_info("CHR2"))).bp_to_node + std::stoull(pv.second->get_info("END")));
-                svaha::edge e(first, second);
-                cout << e.emit() << endl;
-            }
-            catch(const std::out_of_range& oor){
-                cerr << "Out of range error: interchromosomal variants." << endl;
-                cerr << oor.what() << endl;
-            }
+    // // Handle interchromosomal variants
+    // for (auto& c : sg.name_to_contig){
+    //     for (auto& pv : c.second.interchrom_variants){
+    //         try{
+    //             svaha::node* first;
+    //             first = ( sg.name_to_contig.at(std::string(pv.second->chrom)).bp_to_node + pv.second->zero_based_position() );
+    //             svaha::node* second;
+    //             second = (sg.name_to_contig.at(std::string(pv.second->get_info("CHR2"))).bp_to_node + std::stoull(pv.second->get_info("END")));
+    //             svaha::edge e(first, second);
+    //             cout << e.emit() << endl;
+    //         }
+    //         catch(const std::out_of_range& oor){
+    //             cerr << "Out of range error: interchromosomal variants." << endl;
+    //             cerr << oor.what() << endl;
+    //         }
 
-        }
-    }
+    //     }
+    // }
 
     pliib::strdelete(ref_file);
     pliib::strdelete(var_file);
