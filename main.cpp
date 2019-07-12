@@ -545,6 +545,9 @@ int main(int argc, char** argv){
                 delete prev_ref_node;
                 prev_ref_node = n;
             }
+            else if(pos == 0){
+                prev_ref_node = n;
+            }
             //  if (pos != 0){
             //      cout << c.second.bp_to_node[pos]->id << endl;
             //      cout << c.second.bp_to_node[last_ref_node_pos]->id << endl;
