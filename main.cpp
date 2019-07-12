@@ -107,7 +107,7 @@ namespace svaha {
         ~pre_contig(){
             pliib::strdelete(seq);
             if (bp_to_node != nullptr){
-                delete [] bp_to_node;
+                //delete [] bp_to_node;
             }
         };
         void clear_seq(){
@@ -537,6 +537,7 @@ int main(int argc, char** argv){
 
 
             if (pos > 0 && 
+		    prev_ref_node != nullptr &&
                     n->contig != NULL && 
                     prev_ref_node->contig != NULL ){
                 svaha::edge e(prev_ref_node, n);
