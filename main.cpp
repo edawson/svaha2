@@ -477,7 +477,7 @@ int main(int argc, char** argv){
 
             // Emit the node, caching it if we need it later for a variant.
             cout << n->emit() << endl;
-            pliib::strdelete(n->seq);
+            //pliib::strdelete(n->seq);
             //cout << n->id << " " << n->contig  << " " << n->seqlen << endl;
 
             TVCF::variant* v;
