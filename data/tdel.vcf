@@ -15,4 +15,4 @@
 ##INFO=<ID=MICROSAT,Number=0,Type=Flag,Description="Generated at a sequence repeat loci">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	X
-x	9	.	G	<DEL>	99	.	AC=1;LEN=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-4;END=12	GT	1|0
+x	9	.	G	<DEL>	99	.	AC=1;LEN=1;NA=1;NS=1;SVTYPE=DEL;SVLEN=-3;END=12	GT	1|0
