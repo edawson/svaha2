@@ -101,7 +101,7 @@ namespace svaha {
     };
 
     struct path_occ_t{
-        node* n = nullptr;
+        svaha::node* node;
         bool isforward = true;
     };
 
@@ -396,7 +396,12 @@ int main(int argc, char** argv){
                             pliib::strcopy(var->chrom, var_allele->chrom);
                             pliib::strcopy(var->get_sv_type().c_str(), var_allele->type);
                             std::uint64_t svend = var->get_sv_end();
-                            if (svend == 0) continue;
+                            if (svend == 0 || on_chrom_position == 0){
+                                pliib::strdelete(var_allele->chrom);
+                                pliib::strdelete(var_allele->type);
+                                delete var;
+                                continue;
+                            }
 
                             // Correct for flat alleles
                             if (flat && (svtype == "DEL" || svtype == "INS")){
@@ -446,7 +451,7 @@ int main(int argc, char** argv){
                         exit(9);
                     }
                     var_count += 1;
-
+                    delete var;
                 }
             }
 
@@ -518,7 +523,7 @@ int main(int argc, char** argv){
         //std::uint64_t total_seq = 0;
         
 
-        for (size_t i = 0; i < bps.size(); ++i){
+        for (size_t i = 0; i < bps.size() - 1; ++i){
 
 
             std::uint64_t brk = bps[i];
@@ -546,11 +551,10 @@ int main(int argc, char** argv){
                     (c.second.bp_to_interchrom.find(brk) != c.second.bp_to_interchrom.end() && do_translocations);
 
             if (position_is_variant){
-                c.second.bp_to_node[pos] = n;
-                c.second.bp_to_node[brk - 1] = n;
                 //cerr << prev_ref_node->id << "->" << n->id << endl;
                 allele = c.second.bp_to_allele.at(brk);
                 vtype = string(allele->type);
+                
                 if (vtype == "DEL" && flat){
                     svaha::node* ins_node = sg.create_node();
                     c.second.bp_to_inserted_node[pos] = ins_node;
@@ -566,8 +570,20 @@ int main(int argc, char** argv){
                     svaha::node* ins_node = sg.create_node();
                     c.second.bp_to_inserted_node[pos] = ins_node;
                 }
-
+                
+                //cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
+                // c.second.bp_to_node[allele->pos] = n;
+                // c.second.bp_to_node[allele->pos - 1] = prev_ref_node;
+                // c.second.bp_to_node[allele->end] = n;
             }
+            else{
+                //cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
+                // c.second.bp_to_node[brk - 1] = n;
+                // c.second.bp_to_node[pos+1] = n;
+            }
+            cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
+            c.second.bp_to_node[brk - 1] = n;
+            c.second.bp_to_node[pos] = n;
 
             if (pos > 0 && 
 		        prev_ref_node != nullptr &&
@@ -599,12 +615,23 @@ int main(int argc, char** argv){
     for (auto& c : sg.name_to_contig){
         for (auto& pv : c.second.bp_to_allele){
 
-            TVCF::minimal_allele_t* allele;
-            string vtype;
-            std::uint64_t vpos;
-            std::uint64_t vend;
+            TVCF::minimal_allele_t* allele = pv.second;
+            string vtype = string(allele->type);
+            std::uint64_t zero_based_vpos = allele->pos - 1;
+            std::uint64_t zero_based_vend = allele->end - 1;
 
 
+            svaha::node* s = c.second.bp_to_node[zero_based_vpos + 1];
+            svaha::node* pre = c.second.bp_to_node[zero_based_vpos];
+            svaha::node* post = c.second.bp_to_node[zero_based_vend + 1];
+            //cerr  << s->id << " " << endl;
+            #define DEBUG
+            #ifdef DEBUG
+            cerr << "Processing allele at " << zero_based_vpos << " TO " << zero_based_vend << endl;
+                cerr << "Pre: " << pre->id <<
+                " variant_node: " << s->id <<
+                " Post: " <<  post->id << endl;
+            #endif
             // IFF the variant is an INS type:
             //      get its sequence from its seq field OR an external FASTA
 
@@ -631,10 +658,8 @@ int main(int argc, char** argv){
                 if (vtype == "DEL"){
                 // Get the start and end of the variant
 			        //cerr << "Processing DEL at " << allele->chrom << ":" << allele->pos << endl;
-			        //std::uint64_t start = allele->pos;
-                    //std::uint64_t end = allele->end;
-                    //svaha::node* s = c.second.bp_to_node[start];
-                    //cerr << brk << " " << start << " " << end << endl;
+
+                    
                     if (flat){
                         
                     }
@@ -642,10 +667,19 @@ int main(int argc, char** argv){
                 else if (vtype == "INS" || vtype == ""){
                     //svaha::node* ins_node = sg.create_node();
                     //c.second.bp_to_insertion_node[allele->pos] = ins_node;
+                    if (flat){
+
+                    }
                 }
                 else if (vtype == "INV"){
-                // Get start and end of variant,
-                // then get the corresponding nodes.
+                    // Get start and end of variant,
+                    // then get the corresponding nodes.
+                    if (flat){
+
+                    }
+
+                }
+                else if (vtype == "TRA"){
 
                 }
 
