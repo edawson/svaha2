@@ -122,7 +122,7 @@ namespace svaha {
         svaha::node** bp_to_node;
         //spp::sparse_hash_map<uint64_t, TVCF::variant*> bp_to_variant;
         spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_allele;
-        spp::sparse_hash_map<uint64_t, node*> bp_to_insertion_node;
+        spp::sparse_hash_map<uint64_t, node*> bp_to_inserted_node;
         //spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
         spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_interchrom;
         std::vector<std::uint64_t> breakpoints;
@@ -432,7 +432,8 @@ int main(int argc, char** argv){
                             //     }
                             // }
                             sg.name_to_contig.at(string(var_allele->chrom)).bp_to_allele[var_allele->pos] = var_allele;
-                            sg.name_to_contig.at(string(var_allele->chrom)).bp_to_allele[var_allele->end] = var_allele;
+                            if (var_allele->chrom != var_allele->chrom_2)
+                                sg.name_to_contig.at(string(var_allele->chrom_2)).bp_to_allele[var_allele->end] = var_allele;
 
                         }
                         else{
@@ -495,7 +496,7 @@ int main(int argc, char** argv){
 
     for (auto& c : sg.name_to_contig){
 
-	cerr << "Processing " << c.first << "." << endl;
+	    cerr << "Building reference backbone for " << c.first << "." << endl;
 
         // Get reference sequence
         if (! TFA::hasSequence(tf, c.first.c_str())){
@@ -522,7 +523,6 @@ int main(int argc, char** argv){
 
             std::uint64_t brk = bps[i];
             // if (brk == 0){
-
             //     continue;
             // }
             svaha::node* n = sg.create_node();
@@ -544,12 +544,65 @@ int main(int argc, char** argv){
             //         (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end() && do_translocations);
             bool position_is_variant = c.second.bp_to_allele.find(brk) != c.second.bp_to_allele.end() ||
                     (c.second.bp_to_interchrom.find(brk) != c.second.bp_to_interchrom.end() && do_translocations);
+
             if (position_is_variant){
                 c.second.bp_to_node[pos] = n;
                 c.second.bp_to_node[brk - 1] = n;
                 //cerr << prev_ref_node->id << "->" << n->id << endl;
                 allele = c.second.bp_to_allele.at(brk);
                 vtype = string(allele->type);
+                if (vtype == "DEL" && flat){
+                    svaha::node* ins_node = sg.create_node();
+                    c.second.bp_to_inserted_node[pos] = ins_node;
+                    // ins_node->seq = n->seq;
+                    // ins_node->seqlen = strlen(n->seq);
+                    //cout << ins_node->emit() << endl;
+                }
+                else if (vtype == "INS"){
+                    svaha::node* ins_node = sg.create_node();
+                    c.second.bp_to_inserted_node[pos] = ins_node;
+                }
+                else if (vtype == "INV" && flat){
+                    svaha::node* ins_node = sg.create_node();
+                    c.second.bp_to_inserted_node[pos] = ins_node;
+                }
+
+            }
+
+            if (pos > 0 && 
+		        prev_ref_node != nullptr &&
+                n->contig != NULL && 
+                prev_ref_node->contig != NULL ){
+                svaha::edge e(prev_ref_node, n);
+                cout << e.emit() << endl;
+                //delete prev_ref_node;
+                prev_ref_node = n;
+            }
+            else if(pos == 0){
+                prev_ref_node = n;
+            }
+            //  if (pos != 0){
+            //      cout << c.second.bp_to_node[pos]->id << endl;
+            //      cout << c.second.bp_to_node[last_ref_node_pos]->id << endl;
+            //  }
+            //last_ref_node_pos = pos;
+
+            pos = brk;
+        }
+        bps.clear();
+        c.second.breakpoints.clear();
+        c.second.clear_seq();
+
+    }
+
+    // Handle all variants
+    for (auto& c : sg.name_to_contig){
+        for (auto& pv : c.second.bp_to_allele){
+
+            TVCF::minimal_allele_t* allele;
+            string vtype;
+            std::uint64_t vpos;
+            std::uint64_t vend;
 
 
             // IFF the variant is an INS type:
@@ -578,75 +631,23 @@ int main(int argc, char** argv){
                 if (vtype == "DEL"){
                 // Get the start and end of the variant
 			        //cerr << "Processing DEL at " << allele->chrom << ":" << allele->pos << endl;
-			        std::uint64_t start = allele->pos;
-                    std::uint64_t end = allele->end;
+			        //std::uint64_t start = allele->pos;
+                    //std::uint64_t end = allele->end;
                     //svaha::node* s = c.second.bp_to_node[start];
                     //cerr << brk << " " << start << " " << end << endl;
-                    if (brk == end){
-                        //cerr << s->id << endl;
+                    if (flat){
+                        
                     }
                 }
                 else if (vtype == "INS" || vtype == ""){
-                    svaha::node* ins_node = sg.create_node();
-                    c.second.bp_to_insertion_node[allele->pos] = ins_node;
+                    //svaha::node* ins_node = sg.create_node();
+                    //c.second.bp_to_insertion_node[allele->pos] = ins_node;
                 }
                 else if (vtype == "INV"){
                 // Get start and end of variant,
                 // then get the corresponding nodes.
 
                 }
-            }
-            // total_seq += brk - pos;
-            // cout << total_seq << " " << c.second.seqlen <<endl;
-
-
-
-
-            //cout << "pos: " << pos << " brk: " << brk << endl;
-
-
-            if (pos > 0 && 
-		    prev_ref_node != nullptr &&
-                    n->contig != NULL && 
-                    prev_ref_node->contig != NULL ){
-                svaha::edge e(prev_ref_node, n);
-                cout << e.emit() << endl;
-                delete prev_ref_node;
-                prev_ref_node = n;
-            }
-            else if(pos == 0){
-                prev_ref_node = n;
-            }
-            //  if (pos != 0){
-            //      cout << c.second.bp_to_node[pos]->id << endl;
-            //      cout << c.second.bp_to_node[last_ref_node_pos]->id << endl;
-            //  }
-            //last_ref_node_pos = pos;
-
-            pos = brk;
-        }
-        bps.clear();
-        c.second.breakpoints.clear();
-        c.second.clear_seq();
-
-    }
-
-    // Handle interchromosomal variants
-    for (auto& c : sg.name_to_contig){
-        for (auto& pv : c.second.bp_to_allele){
-
-            // try{
-            //     svaha::node* first;
-            //     first = ( sg.name_to_contig.at(std::string(pv.second->chrom)).bp_to_node [ pv.second->zero_based_position() ] );
-            //     svaha::node* second;
-            //     second = (sg.name_to_contig.at(std::string(pv.second->get_info("CHR2"))).bp_to_node [std::stoull(pv.second->get_info("END")) ]);
-            //     svaha::edge e(first, second);
-            //     cout << e.emit() << endl;
-            // }
-            // catch(const std::out_of_range& oor){
-            //     cerr << "Out of range error: interchromosomal variants." << endl;
-            //     cerr << oor.what() << endl;
-            // }
 
         }
     }
