@@ -96,7 +96,7 @@ namespace svaha {
             e.ends.set(2,0);
             e.ends.set(3,0);
             e.type = 1;
-            return e.to_string_2();
+            return e.to_string_1();
         };
     };
 
@@ -122,6 +122,7 @@ namespace svaha {
         svaha::node** bp_to_node;
         //spp::sparse_hash_map<uint64_t, TVCF::variant*> bp_to_variant;
         spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_allele;
+        spp::sparse_hash_map<uint64_t, node*> bp_to_insertion_node;
         //spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
         spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_interchrom;
         std::vector<std::uint64_t> breakpoints;
@@ -393,37 +394,45 @@ int main(int argc, char** argv){
                             string svtype = var->get_sv_type();
                             TVCF::minimal_allele_t* var_allele = new TVCF::minimal_allele_t();
                             pliib::strcopy(var->chrom, var_allele->chrom);
+                            pliib::strcopy(var->get_sv_type().c_str(), var_allele->type);
+                            std::uint64_t svend = var->get_sv_end();
+                            if (svend == 0) continue;
+
                             // Correct for flat alleles
                             if (flat && (svtype == "DEL" || svtype == "INS")){
                                 on_chrom_position = on_chrom_position - 1;
+                                sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(on_chrom_position + 1);
                             }
                             sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(on_chrom_position);
                             var_allele->pos = on_chrom_position;
-                            if (flat && (svtype == "DEL" || svtype == "INS")){
-                                sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(on_chrom_position + 1);
+                            // TODO: going to have to refactor this to handle SNVs
+                                
+                            if (svtype == "INS"){
+                                svend = on_chrom_position + 1;
                             }
+                            // Zero-orient that breakpoint
+                            var_allele->end = svend -1 ;
+
+                            string second_chr = var->get_info("CHR2");
+                            if (second_chr == ""){
+                                second_chr = string(var_allele->chrom);
+                            }
+                            pliib::strcopy(second_chr.c_str(), var_allele->chrom_2);
+                            sg.name_to_contig.at(string(var_allele->chrom_2)).breakpoints.push_back(var_allele->end);
+
 
                             //TVCF::variant v(*var);
                             //sg.name_to_variants.at(string(var->chrom)).push_back(v);
                             //sg.name_to_contig.at(string(var->chrom)).bp_to_variant[on_chrom_position] = var;
-                            if (svtype != "TRA"){
-                                // TODO: going to have to refactor this to handle SNVs
-                                std::uint64_t svend = var->get_sv_end();
-                                if (svend == 0) continue;
-                                if (svtype == "INS"){
-                                    svend = on_chrom_position + 1;
-                                }
-                                sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(svend);
-                                var_allele->end = svend;
-                                pliib::strcopy(var->get_info("CHR2").c_str(), var_allele->chrom_2);
-                            }
-                            else if (do_translocations && svtype == "TRA"){
-                                std::string c2 = var->get_info("CHR2");
-                                if (acceptable_chroms.find(c2) != acceptable_chroms.end()){
-                                    sg.name_to_contig.at(c2).breakpoints.push_back(var->get_reference_end(0));
-                                }
-                            }
-                            sg.name_to_contig.at(string(var->chrom)).bp_to_allele[on_chrom_position] = var_allele;
+                            //if (svtype != "TRA"){
+                            // else if (do_translocations && svtype == "TRA"){
+                            //     std::string c2 = var->get_info("CHR2");
+                            //     if (acceptable_chroms.find(c2) != acceptable_chroms.end()){
+                            //         sg.name_to_contig.at(c2).breakpoints.push_back(var->get_reference_end(0));
+                            //     }
+                            // }
+                            sg.name_to_contig.at(string(var_allele->chrom)).bp_to_allele[var_allele->pos] = var_allele;
+                            sg.name_to_contig.at(string(var_allele->chrom)).bp_to_allele[var_allele->end] = var_allele;
 
                         }
                         else{
@@ -499,7 +508,7 @@ int main(int argc, char** argv){
         //std::vector<TVCF::variant> contig_vars = sg.name_to_variants.at(c.first);
         std::vector<std::uint64_t> bps = c.second.breakpoints;
         c.second.bp_to_node = new svaha::node* [c.second.seqlen];
-        bool snptrip = false;
+        bool insertion_state = false;
 
         std::uint64_t pos = 0;
         std::uint64_t last_ref_node_pos = 0;
@@ -527,18 +536,20 @@ int main(int argc, char** argv){
             //pliib::strdelete(n->seq);
             //cout << n->id << " " << n->contig  << " " << n->seqlen << endl;
 
-            TVCF::variant* v;
+            TVCF::minimal_allele_t* allele;
             string vtype;
             std::uint64_t vpos;
             std::uint64_t vend;
-            bool position_is_variant = c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end() ||
-                    (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end() && do_translocations);
+            // bool position_is_variant = c.second.bp_to_variant.find(brk) != c.second.bp_to_variant.end() ||
+            //         (c.second.interchrom_variants.find(brk) != c.second.interchrom_variants.end() && do_translocations);
+            bool position_is_variant = c.second.bp_to_allele.find(brk) != c.second.bp_to_allele.end() ||
+                    (c.second.bp_to_interchrom.find(brk) != c.second.bp_to_interchrom.end() && do_translocations);
             if (position_is_variant){
                 c.second.bp_to_node[pos] = n;
                 c.second.bp_to_node[brk - 1] = n;
                 //cerr << prev_ref_node->id << "->" << n->id << endl;
-                v = c.second.bp_to_variant.at(brk);
-                vtype = v->get_info("SVTYPE");
+                allele = c.second.bp_to_allele.at(brk);
+                vtype = string(allele->type);
 
 
             // IFF the variant is an INS type:
@@ -566,15 +577,23 @@ int main(int argc, char** argv){
             // }
                 if (vtype == "DEL"){
                 // Get the start and end of the variant
-			cerr << "Processing DEL at " << v->chrom << ":" << v->pos << endl;
-			std::uint64_t start = 
+			        //cerr << "Processing DEL at " << allele->chrom << ":" << allele->pos << endl;
+			        std::uint64_t start = allele->pos;
+                    std::uint64_t end = allele->end;
+                    //svaha::node* s = c.second.bp_to_node[start];
+                    //cerr << brk << " " << start << " " << end << endl;
+                    if (brk == end){
+                        //cerr << s->id << endl;
+                    }
                 }
                 else if (vtype == "INS" || vtype == ""){
-                    //svaha::node* ins_node = sg.create_node();
+                    svaha::node* ins_node = sg.create_node();
+                    c.second.bp_to_insertion_node[allele->pos] = ins_node;
                 }
                 else if (vtype == "INV"){
                 // Get start and end of variant,
                 // then get the corresponding nodes.
+
                 }
             }
             // total_seq += brk - pos;
@@ -614,19 +633,20 @@ int main(int argc, char** argv){
 
     // Handle interchromosomal variants
     for (auto& c : sg.name_to_contig){
-        for (auto& pv : c.second.interchrom_variants){
-            try{
-                svaha::node* first;
-                first = ( sg.name_to_contig.at(std::string(pv.second->chrom)).bp_to_node [ pv.second->zero_based_position() ] );
-                svaha::node* second;
-                second = (sg.name_to_contig.at(std::string(pv.second->get_info("CHR2"))).bp_to_node [std::stoull(pv.second->get_info("END")) ]);
-                svaha::edge e(first, second);
-                cout << e.emit() << endl;
-            }
-            catch(const std::out_of_range& oor){
-                cerr << "Out of range error: interchromosomal variants." << endl;
-                cerr << oor.what() << endl;
-            }
+        for (auto& pv : c.second.bp_to_allele){
+
+            // try{
+            //     svaha::node* first;
+            //     first = ( sg.name_to_contig.at(std::string(pv.second->chrom)).bp_to_node [ pv.second->zero_based_position() ] );
+            //     svaha::node* second;
+            //     second = (sg.name_to_contig.at(std::string(pv.second->get_info("CHR2"))).bp_to_node [std::stoull(pv.second->get_info("END")) ]);
+            //     svaha::edge e(first, second);
+            //     cout << e.emit() << endl;
+            // }
+            // catch(const std::out_of_range& oor){
+            //     cerr << "Out of range error: interchromosomal variants." << endl;
+            //     cerr << oor.what() << endl;
+            // }
 
         }
     }
