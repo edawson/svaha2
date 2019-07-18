@@ -120,8 +120,10 @@ namespace svaha {
         std::uint64_t c_edge_id = 0;
         //spp::sparse_hash_map<uint64_t, node*> bp_to_node;
         svaha::node** bp_to_node;
-        spp::sparse_hash_map<uint64_t, TVCF::variant*> bp_to_variant;
-        spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
+        //spp::sparse_hash_map<uint64_t, TVCF::variant*> bp_to_variant;
+        spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_allele;
+        //spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
+        spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_interchrom;
         std::vector<std::uint64_t> breakpoints;
 
         ~pre_contig(){
@@ -389,25 +391,31 @@ int main(int argc, char** argv){
                         if (acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end()){
                             std::uint64_t on_chrom_position = var->zero_based_position();
                             string svtype = var->get_sv_type();
+                            TVCF::minimal_allele_t* var_allele = new TVCF::minimal_allele_t();
+                            pliib::strcopy(var->chrom, var_allele->chrom);
                             // Correct for flat alleles
                             if (flat && (svtype == "DEL" || svtype == "INS")){
                                 on_chrom_position = on_chrom_position - 1;
                             }
                             sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(on_chrom_position);
+                            var_allele->pos = on_chrom_position;
                             if (flat && (svtype == "DEL" || svtype == "INS")){
                                 sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(on_chrom_position + 1);
                             }
 
                             //TVCF::variant v(*var);
                             //sg.name_to_variants.at(string(var->chrom)).push_back(v);
-                            sg.name_to_contig.at(string(var->chrom)).bp_to_variant[on_chrom_position] = var;
+                            //sg.name_to_contig.at(string(var->chrom)).bp_to_variant[on_chrom_position] = var;
                             if (svtype != "TRA"){
+                                // TODO: going to have to refactor this to handle SNVs
                                 std::uint64_t svend = var->get_sv_end();
                                 if (svend == 0) continue;
                                 if (svtype == "INS"){
                                     svend = on_chrom_position + 1;
                                 }
                                 sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(svend);
+                                var_allele->end = svend;
+                                pliib::strcopy(var->get_info("CHR2").c_str(), var_allele->chrom_2);
                             }
                             else if (do_translocations && svtype == "TRA"){
                                 std::string c2 = var->get_info("CHR2");
@@ -415,6 +423,7 @@ int main(int argc, char** argv){
                                     sg.name_to_contig.at(c2).breakpoints.push_back(var->get_reference_end(0));
                                 }
                             }
+                            sg.name_to_contig.at(string(var->chrom)).bp_to_allele[on_chrom_position] = var_allele;
 
                         }
                         else{
