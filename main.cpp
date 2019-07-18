@@ -401,7 +401,7 @@ int main(int argc, char** argv){
                             //TVCF::variant v(*var);
                             //sg.name_to_variants.at(string(var->chrom)).push_back(v);
                             sg.name_to_contig.at(string(var->chrom)).bp_to_variant[on_chrom_position] = var;
-                            if (svtype != "TRA" && svtype != "DEL"){
+                            if (svtype != "TRA"){
                                 std::uint64_t svend = var->get_sv_end();
                                 if (svend == 0) continue;
                                 if (svtype == "INS"){
@@ -447,11 +447,12 @@ int main(int argc, char** argv){
         cerr << "Contig " << c.first << " has " << c.second.breakpoints.size() << " breakpoints." << endl;
     }
 
-    for (auto c : sg.name_to_contig){
-        for (auto v : c.second.breakpoints){
-            cerr << v << endl;
-        }
-    }
+//    for (auto c : sg.name_to_contig){
+//        for (auto v : c.second.breakpoints){
+//            cerr << v << endl;
+//        }
+//    }
+
 
     cerr << endl << endl;
     cerr << "Adding max-node-length breakpoints." << endl;
@@ -508,7 +509,7 @@ int main(int argc, char** argv){
             // }
             svaha::node* n = sg.create_node();
             pliib::strcopy(c.first.c_str(), n->contig);
-            cerr << c.second.seqlen << " " << pos << " " << brk - pos << endl;
+            //cerr << c.second.seqlen << " " << pos << " " << brk - pos << endl;
             pliib::strcopy(c.second.seq + pos,  brk - pos, n->seq);
             n->seqlen = brk - pos;
 
@@ -526,7 +527,7 @@ int main(int argc, char** argv){
             if (position_is_variant){
                 c.second.bp_to_node[pos] = n;
                 c.second.bp_to_node[brk - 1] = n;
-                cerr << prev_ref_node->id << "->" << n->id << endl;
+                //cerr << prev_ref_node->id << "->" << n->id << endl;
                 v = c.second.bp_to_variant.at(brk);
                 vtype = v->get_info("SVTYPE");
 
@@ -556,6 +557,8 @@ int main(int argc, char** argv){
             // }
                 if (vtype == "DEL"){
                 // Get the start and end of the variant
+			cerr << "Processing DEL at " << v->chrom << ":" << v->pos << endl;
+			std::uint64_t start = 
                 }
                 else if (vtype == "INS" || vtype == ""){
                     //svaha::node* ins_node = sg.create_node();
