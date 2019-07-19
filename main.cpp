@@ -451,8 +451,8 @@ int main(int argc, char** argv){
                             //     }
                             // }
                             sg.name_to_contig.at(string(var_allele->chrom)).bp_to_allele[var_allele->pos] = var_allele;
-                            if (var_allele->chrom != var_allele->chrom_2)
-                                sg.name_to_contig.at(string(var_allele->chrom_2)).bp_to_allele[var_allele->end] = var_allele;
+                            // if (var_allele->chrom != var_allele->chrom_2)
+                            //     sg.name_to_contig.at(string(var_allele->chrom_2)).bp_to_allele[var_allele->end] = var_allele;
 
                         }
                         else{
@@ -661,10 +661,11 @@ int main(int argc, char** argv){
             // Get the nodes right before, right after, and right at the start of the variant.
             // For flat variants, S holds the single-base ref sequence.
             svaha::node* s = c.second.bp_to_node[zero_based_vpos + 1];
+            svaha::node* last_var_node = c.second.bp_to_node[zero_based_vend];
             svaha::node* pre = c.second.bp_to_node[zero_based_vpos];
             svaha::node* post = c.second.bp_to_node[zero_based_vend + 1];
             
-            #define DEBUG
+            //#define DEBUG
             #ifdef DEBUG
             cerr << "Processing allele at " << zero_based_vpos << " TO " << zero_based_vend << endl;
                 cerr << "Pre: " << pre->id <<
@@ -715,21 +716,44 @@ int main(int argc, char** argv){
                 }
             }
             else if (vtype == "INS" || vtype == ""){
-                    
+
+
                 if (flat){
+                    // Retrieve the inserted inverted node
+                    svaha::node* insy = c.second.bp_to_inserted_node[zero_based_vpos + 1];
 
                 }
             }
             else if (vtype == "INV"){
-                    // Get start and end of variant,
-                    // then get the corresponding nodes.
-                if (flat){
+                #ifdef DEBUG
+                cerr << "Last var node: " << last_var_node->id << endl;
+                #endif
+                
+                if (!flat){
+                    // Generate a tail->tail edge from pre to the last node of the variant run.
+                    svaha::edge e(pre, last_var_node, true, false);
+                    cout << e.emit() << endl;
+
+                    // Generate a head->head edge from the first variant node to the post node.
+                    svaha::edge f(s, post, false, true);
+                    cout << f.emit() << endl;
+                }
+                else{
+                    // Grab our inserted inversion node
+                    svaha::node* invy = c.second.bp_to_inserted_node[zero_based_vpos + 1];
+                    // Fill node sequence with the reverse of the ref node.
 
                 }
 
             }
             else if (vtype == "TRA"){
+                // pre holds the relevant node on this chromosome/contig
+                // Get the node on the other contig
+                svaha::node* other_contig_node = sg.name_to_contig.at(string(allele->chrom_2)).bp_to_node[zero_based_vend + 1];
+                svaha::edge e(pre, other_contig_node);
+                cout << e.emit() << endl;
 
+                
             }
 
             processed_alleles[allele->make_id()] = 1;
