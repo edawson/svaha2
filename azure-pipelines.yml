@@ -14,4 +14,4 @@ pr:
 pool:
   vmImage: 'ubuntu-16.04'
 steps:
-  - script: git submodule update --init --recursive && make
+  - script: git submodule update --init --recursive && make && make test
