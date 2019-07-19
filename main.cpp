@@ -14,6 +14,10 @@ using namespace std;
 
 namespace svaha {
 
+    inline string gfa_version(){
+        return "H\tVN:Z:1.0";
+    };
+
 
     struct node{
         std::uint64_t id;
@@ -39,7 +43,7 @@ namespace svaha {
             s.name = std::to_string(this->id);
             s.length = this->seqlen;
             s.sequence = string(this->seq);
-            return s.to_string_2();
+            return s.to_string_1();
         };
 
         void create_paths(std::uint8_t np = 3){
@@ -102,29 +106,45 @@ namespace svaha {
 
     struct path_occ_t{
         svaha::node* node = nullptr;
-        std::uint32_t rank = 0;
-        char* pname = nullptr;
         bool isforward = true;
-        inline string to_string(){
-            if (node != nullptr && pname != nullptr){
-                std::ostringstream st;
-                st << "W" << "\t" <<
-                pname << "\t" <<
-                rank << "\t" <<
-                node->id << "\t" <<
-                (isforward ? "+" : "-");
-                return st.str();
-            }
-            return "";
-        }
     };
 
 
     struct path{
-        std::uint64_t id;
+        std::uint64_t id = 0;
         std::string name;
-        //std::vector<edge*> edges;
-        std::vector<path_occ_t> nodes;
+        // Holds nodes/orientations
+        svaha::path_occ_t* occs;
+        std::uint32_t num_occs = 0;
+        path(){
+            occs = new svaha::path_occ_t[3];
+            num_occs = 0;
+        };
+        path(std::uint32_t n){
+            occs = new svaha::path_occ_t[n];
+            num_occs = 0;
+        };
+        ~path(){
+            //delete [] occs;
+        };
+        inline void add_node(svaha::node* n, bool isFWD = true){
+            //svaha::path_occ_t* pt = new svaha::path_occ_t();
+            (occs[num_occs]).node = n;
+            (occs[num_occs]).isforward = isFWD;
+            ++num_occs;
+        };
+        std::string to_string(){
+            if (num_occs == 0) return "";
+            std::ostringstream st;
+            st << "P" << "\t";
+            st << name << "\t";
+            for (size_t i = 0; i < num_occs - 1; ++i){
+                st << ((occs[i]).node)->id << ((occs[i]).isforward ? "+" : "-") << ",";
+            }
+            st << (occs[num_occs - 1].node)->id << ((occs[num_occs -1 ]).isforward ? "+" : "-");
+            return st.str();
+        };  
+
     };
 
     struct pre_contig{
@@ -132,12 +152,14 @@ namespace svaha {
         std::uint32_t seqlen;
         std::uint64_t c_node_id = 0;
         std::uint64_t c_edge_id = 0;
+        std::uint64_t chrom_path_rank = 0;
         //spp::sparse_hash_map<uint64_t, node*> bp_to_node;
-        svaha::node** bp_to_node;
         //spp::sparse_hash_map<uint64_t, TVCF::variant*> bp_to_variant;
+        //spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
+
+        svaha::node** bp_to_node;
         spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_allele;
         spp::sparse_hash_map<uint64_t, node*> bp_to_inserted_node;
-        //spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
         spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_interchrom;
         std::vector<std::uint64_t> breakpoints;
 
@@ -176,6 +198,7 @@ namespace svaha {
             std::vector<std::uint64_t> bps (unis.begin(), unis.end());
             breakpoints = bps;
         };
+
     };
 
 
@@ -195,7 +218,8 @@ namespace svaha {
             return ++curr_edge_id;
         };
         spp::sparse_hash_map<string, pre_contig> name_to_contig;
-        spp::sparse_hash_map<string, path> name_to_path;
+        spp::sparse_hash_map<std::string, svaha::path> name_to_path;
+
         //spp::sparse_hash_map<string, vector<TVCF::variant>> name_to_variants;
         void re_id(){
             std::uint64_t prev_id = 0;
@@ -513,6 +537,8 @@ int main(int argc, char** argv){
 
     std::uint64_t greatest_prev_id = 0;
 
+    cout << svaha::gfa_version() << endl;
+
     for (auto& c : sg.name_to_contig){
 
 	    cerr << "Building reference backbone for " << c.first << "." << endl;
@@ -524,6 +550,9 @@ int main(int argc, char** argv){
         }
         TFA::getSequence(tf, c.first.c_str(), c.second.seq);
         std::size_t numbp = c.second.breakpoints.size();
+        svaha::path cp(numbp);
+        cp.name = c.first;
+        sg.name_to_path[c.first] = cp; 
 
         //std::vector<TVCF::variant> contig_vars = sg.name_to_variants.at(c.first);
         std::vector<std::uint64_t> bps = c.second.breakpoints;
@@ -552,6 +581,7 @@ int main(int argc, char** argv){
 
             // Emit the node, caching it if we need it later for a variant.
             cout << n->emit() << endl;
+            sg.name_to_path[c.first].add_node(n);
             //pliib::strdelete(n->seq);
             //cout << n->id << " " << n->contig  << " " << n->seqlen << endl;
 
@@ -758,6 +788,7 @@ int main(int argc, char** argv){
 
             processed_alleles[allele->make_id()] = 1;
         }
+        cout << sg.name_to_path[c.first].to_string() << endl;
     }
 
     pliib::strdelete(ref_file);
