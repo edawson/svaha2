@@ -10,3 +10,6 @@
 [submodule "tinyVCF"]
 	path = tinyVCF
 	url = https://github.com/edawson/tinyVCF
+[submodule "bash-tap"]
+	path = bash-tap
+	url = https://github.com/illusori/bash-tap
