@@ -9,5 +9,6 @@ plan tests 2
 svaha=../svaha2
 data=..//data
 
-is "$(${svaha} -r ${data}/tgraph.fa -v ${data}/tdel.vcf  | sort | md5sum | cut -f 1 -d ' ')" "6bf0ee7e84500dc135a91b8db14289cd"
-is "$(${svaha} -r ${data}/tgraph.fa -v ${data}/tdel.vcf -f | sort | md5sum | cut -f 1 -d ' ')" "0eb09ff47c49a4332ce79d187121ab68"
+
+is "$(${svaha} -r ${data}/tgraph.fa -v ${data}/tdel.vcf  | grep -v "^P\|^H" | sort | md5sum | cut -f 1 -d ' ')" "239b9ae8a090f7e79c8f9c65f88a9ceb"
+is "$(${svaha} -r ${data}/tgraph.fa -v ${data}/tdel.vcf -f | grep -v "^P\|^H" | sort | md5sum | cut -f 1 -d ' ')" "717cedc93001238cfbc64dd937ad74a7"
