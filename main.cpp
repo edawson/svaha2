@@ -101,8 +101,22 @@ namespace svaha {
     };
 
     struct path_occ_t{
-        svaha::node* node;
+        svaha::node* node = nullptr;
+        std::uint32_t rank = 0;
+        char* pname = nullptr;
         bool isforward = true;
+        inline string to_string(){
+            if (node != nullptr && pname != nullptr){
+                std::ostringstream st;
+                st << "W" << "\t" <<
+                pname << "\t" <<
+                rank << "\t" <<
+                node->id << "\t" <<
+                (isforward ? "+" : "-");
+                return st.str();
+            }
+            return "";
+        }
     };
 
 
@@ -631,20 +645,25 @@ int main(int argc, char** argv){
             
 
             TVCF::minimal_allele_t* allele = pv.second;
+            // Alleles are stored on both their pos and end,
+            // so we need to check to see if we've processed them so
+            // we don't do it twice.
             if (processed_alleles.find(allele->make_id()) != processed_alleles.end()){
                 continue;
             }
+            // Get the start and end of the variant
             string vtype = string(allele->type);
             std::uint64_t zero_based_vpos = allele->pos - 1;
             std::uint64_t zero_based_vend = allele->end - 1;
 
             cerr << "Variant allele: " << allele->to_string() << " id: " << allele->make_id() << endl;
 
-
+            // Get the nodes right before, right after, and right at the start of the variant.
+            // For flat variants, S holds the single-base ref sequence.
             svaha::node* s = c.second.bp_to_node[zero_based_vpos + 1];
             svaha::node* pre = c.second.bp_to_node[zero_based_vpos];
             svaha::node* post = c.second.bp_to_node[zero_based_vend + 1];
-            //cerr  << s->id << " " << endl;
+            
             #define DEBUG
             #ifdef DEBUG
             cerr << "Processing allele at " << zero_based_vpos << " TO " << zero_based_vend << endl;
@@ -652,6 +671,7 @@ int main(int argc, char** argv){
                 " variant_node: " << s->id <<
                 " Post: " <<  post->id << endl;
             #endif
+            // Rules for each variant:
             // IFF the variant is an INS type:
             //      get its sequence from its seq field OR an external FASTA
 
@@ -666,44 +686,51 @@ int main(int argc, char** argv){
             // IFF the variant is a TRA / breakend
             //      emit the right edges to link from chrom to chr2
 
-            // Wire up ref nodes on the backbone if we got 'em
-            // if (pos != 0 && 
-            //     c.second.bp_to_node[pos] != NULL &&
-            //     c.second.bp_to_node[last_ref_node_pos] != NULL &&
-            //     c.second.bp_to_node[pos]->contig != NULL &&
-            //     c.second.bp_to_node[last_ref_node_pos]->contig != NULL){
-            //     svaha::edge e(c.second.bp_to_node[last_ref_node_pos], c.second.bp_to_node[pos]);
-            //     cout << e.emit() << endl;
-            // }
-                if (vtype == "DEL"){
-                // Get the start and end of the variant
-			        //cerr << "Processing DEL at " << allele->chrom << ":" << allele->pos << endl;
+            
+            if (vtype == "DEL"){    
+                if (!flat){
+                    // Generate an edge from the node before the variant to the node after the variant.
+                    svaha::edge e(pre, post);
+                    cout << e.emit() << endl;
+                }
+                else{
+                    // Retrieve the inserted flat-allele alt node, which doesn't yet have a sequence.
+                    svaha::node* insy = c.second.bp_to_inserted_node[zero_based_vpos + 1];
+                    #ifdef DEBUG
+                    cerr << "node " << insy->id << " composes our ref path." << endl;
+                    cerr << insy->id << "\'s sequence will be: " << s->seq << endl;
+                    #endif
+                    // Fill insy's sequence with the sequence of node s.
+                    pliib::strcopy(s->seq, insy->seq);
+                    insy->seqlen = s->seqlen;
 
+                    // Write the ref node out
+                    cout << insy->emit() << endl;
+                    // Link that node to our pre ref node
+                    svaha::edge e(pre, insy);
+                    cout << e.emit() << endl;
+                    // Link it to our post ref node
+                    svaha::edge f(insy, post);
+                    cout << f.emit() << endl;
+                }
+            }
+            else if (vtype == "INS" || vtype == ""){
                     
-                    if (flat){
-                        svaha::node* insy = c.second.bp_to_inserted_node[zero_based_vpos + 1];
-                        cerr << "node " << insy->id << " composes our ref path." << endl;
-                        cerr << insy->id << "\'s sequence will be: " << s->seq << endl;
-                    }
-                }
-                else if (vtype == "INS" || vtype == ""){
-                    //svaha::node* ins_node = sg.create_node();
-                    //c.second.bp_to_insertion_node[allele->pos] = ins_node;
-                    if (flat){
+                if (flat){
 
-                    }
                 }
-                else if (vtype == "INV"){
+            }
+            else if (vtype == "INV"){
                     // Get start and end of variant,
                     // then get the corresponding nodes.
-                    if (flat){
-
-                    }
+                if (flat){
 
                 }
-                else if (vtype == "TRA"){
 
-                }
+            }
+            else if (vtype == "TRA"){
+
+            }
 
             processed_alleles[allele->make_id()] = 1;
         }
