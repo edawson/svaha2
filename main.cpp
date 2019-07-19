@@ -554,21 +554,33 @@ int main(int argc, char** argv){
                 //cerr << prev_ref_node->id << "->" << n->id << endl;
                 allele = c.second.bp_to_allele.at(brk);
                 vtype = string(allele->type);
+                cerr << allele->to_string() << endl;
+                // The below line is bad and idk why :'(
+                //if (pos != allele->pos - 1) continue;
                 
-                if (vtype == "DEL" && flat){
+                // Right now, just check if a node exists at our insertion position,
+                // but we should instead use a vector at each position and check the variant hashes.
+                if (vtype == "DEL" && flat && c.second.bp_to_inserted_node[allele->pos] == nullptr){
                     svaha::node* ins_node = sg.create_node();
-                    c.second.bp_to_inserted_node[pos] = ins_node;
+                    c.second.bp_to_inserted_node[allele->pos] = ins_node;
+                    cerr << "Created ins node at " <<
+                    allele->pos << " : id=" << 
+                    ins_node->id << 
+                    " for DEL." << endl; 
                     // ins_node->seq = n->seq;
                     // ins_node->seqlen = strlen(n->seq);
                     //cout << ins_node->emit() << endl;
                 }
                 else if (vtype == "INS"){
                     svaha::node* ins_node = sg.create_node();
-                    c.second.bp_to_inserted_node[pos] = ins_node;
+                    c.second.bp_to_inserted_node[allele->pos] = ins_node;
                 }
-                else if (vtype == "INV" && flat){
+                else if (vtype == "INV" && flat && c.second.bp_to_inserted_node[allele->pos] == nullptr){
                     svaha::node* ins_node = sg.create_node();
-                    c.second.bp_to_inserted_node[pos] = ins_node;
+                    c.second.bp_to_inserted_node[allele->pos] = ins_node;
+                    cerr << "Created ins node at " << allele->pos <<
+                     " : id=" << ins_node->id <<
+                     "for INV." << endl; 
                 }
                 
                 //cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
@@ -611,14 +623,22 @@ int main(int argc, char** argv){
 
     }
 
+    spp::sparse_hash_map<std::string, std::uint8_t> processed_alleles;
     // Handle all variants
     for (auto& c : sg.name_to_contig){
         for (auto& pv : c.second.bp_to_allele){
 
+            
+
             TVCF::minimal_allele_t* allele = pv.second;
+            if (processed_alleles.find(allele->make_id()) != processed_alleles.end()){
+                continue;
+            }
             string vtype = string(allele->type);
             std::uint64_t zero_based_vpos = allele->pos - 1;
             std::uint64_t zero_based_vend = allele->end - 1;
+
+            cerr << "Variant allele: " << allele->to_string() << " id: " << allele->make_id() << endl;
 
 
             svaha::node* s = c.second.bp_to_node[zero_based_vpos + 1];
@@ -661,7 +681,9 @@ int main(int argc, char** argv){
 
                     
                     if (flat){
-                        
+                        svaha::node* insy = c.second.bp_to_inserted_node[zero_based_vpos + 1];
+                        cerr << "node " << insy->id << " composes our ref path." << endl;
+                        cerr << insy->id << "\'s sequence will be: " << s->seq << endl;
                     }
                 }
                 else if (vtype == "INS" || vtype == ""){
@@ -683,6 +705,7 @@ int main(int argc, char** argv){
 
                 }
 
+            processed_alleles[allele->make_id()] = 1;
         }
     }
 
