@@ -247,7 +247,7 @@ void usage(){
     cout << "-T / --no-translocations  : ignore interchromosomal variants." << endl;
     //cout << "-t / --threads     : number of OMP threads to use in construction." << endl;
     cout << "-f / --flat          : use flat alternates (every allele is represented by at least one node)." << endl;
-    cout << "-p / --paths         : output path information for variants." << endl;
+    cout << "-p / --paths         : output path information." << endl;
     cout << "-I / --insertions         : FASTA file of insertion variant sequences." << endl;
     cout << "version 0.1" << endl;
 }
@@ -260,6 +260,7 @@ int main(int argc, char** argv){
     char* insertion_file = nullptr;
     bool flat = false;
     bool do_translocations = true;
+    bool output_paths = false;
     int threads = 1;
     int max_node_size = 128;
 
@@ -315,6 +316,9 @@ int main(int argc, char** argv){
                 break;
             case 'f':
                 flat = true;
+                break;
+            case 'p':
+                output_paths = true;
                 break;
             case 'h':
                 usage();
@@ -550,9 +554,12 @@ int main(int argc, char** argv){
         }
         TFA::getSequence(tf, c.first.c_str(), c.second.seq);
         std::size_t numbp = c.second.breakpoints.size();
-        svaha::path cp(numbp);
-        cp.name = c.first;
-        sg.name_to_path[c.first] = cp; 
+        if (output_paths){
+            svaha::path cp(numbp);
+            cp.name = c.first;
+            sg.name_to_path[c.first] = cp; 
+        }
+
 
         //std::vector<TVCF::variant> contig_vars = sg.name_to_variants.at(c.first);
         std::vector<std::uint64_t> bps = c.second.breakpoints;
@@ -581,7 +588,10 @@ int main(int argc, char** argv){
 
             // Emit the node, caching it if we need it later for a variant.
             cout << n->emit() << endl;
-            sg.name_to_path[c.first].add_node(n);
+            if (output_paths){
+                sg.name_to_path[c.first].add_node(n);
+            }
+
             //pliib::strdelete(n->seq);
             //cout << n->id << " " << n->contig  << " " << n->seqlen << endl;
 
@@ -788,7 +798,9 @@ int main(int argc, char** argv){
 
             processed_alleles[allele->make_id()] = 1;
         }
-        cout << sg.name_to_path[c.first].to_string() << endl;
+        if (output_paths){
+            cout << sg.name_to_path[c.first].to_string() << endl;
+        }
     }
 
     pliib::strdelete(ref_file);
