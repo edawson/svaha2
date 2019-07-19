@@ -404,12 +404,12 @@ int main(int argc, char** argv){
 
                     if (TFA::hasSequence(tf, var->chrom)){
                         if (acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end()){
-                            std::uint64_t on_chrom_position = var->zero_based_position();
+                            std::uint64_t on_chrom_position = var->zero_based_position() + 1;
                             string svtype = var->get_sv_type();
                             TVCF::minimal_allele_t* var_allele = new TVCF::minimal_allele_t();
                             pliib::strcopy(var->chrom, var_allele->chrom);
                             pliib::strcopy(var->get_sv_type().c_str(), var_allele->type);
-                            std::uint64_t svend = var->get_sv_end();
+                            std::uint64_t svend = var->get_sv_end() + 1;
                             if (svend == 0 || on_chrom_position == 0){
                                 pliib::strdelete(var_allele->chrom);
                                 pliib::strdelete(var_allele->type);
