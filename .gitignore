@@ -6,6 +6,7 @@ svaha2
 *.txt
 .vscode
 *.fa
+*.fai
 *.fasta
 *.fastq
 *.vcf

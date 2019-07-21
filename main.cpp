@@ -10,9 +10,15 @@
 #include "spp.h"
 #include "gfakluge.hpp"
 
+//#define DEBUG
+
 using namespace std;
 
 namespace svaha {
+
+    inline string gfa_version(){
+        return "H\tVN:Z:1.0";
+    };
 
 
     struct node{
@@ -39,7 +45,7 @@ namespace svaha {
             s.name = std::to_string(this->id);
             s.length = this->seqlen;
             s.sequence = string(this->seq);
-            return s.to_string_2();
+            return s.to_string_1();
         };
 
         void create_paths(std::uint8_t np = 3){
@@ -102,29 +108,45 @@ namespace svaha {
 
     struct path_occ_t{
         svaha::node* node = nullptr;
-        std::uint32_t rank = 0;
-        char* pname = nullptr;
         bool isforward = true;
-        inline string to_string(){
-            if (node != nullptr && pname != nullptr){
-                std::ostringstream st;
-                st << "W" << "\t" <<
-                pname << "\t" <<
-                rank << "\t" <<
-                node->id << "\t" <<
-                (isforward ? "+" : "-");
-                return st.str();
-            }
-            return "";
-        }
     };
 
 
     struct path{
-        std::uint64_t id;
+        std::uint64_t id = 0;
         std::string name;
-        //std::vector<edge*> edges;
-        std::vector<path_occ_t> nodes;
+        // Holds nodes/orientations
+        svaha::path_occ_t* occs;
+        std::uint32_t num_occs = 0;
+        path(){
+            occs = new svaha::path_occ_t[3];
+            num_occs = 0;
+        };
+        path(std::uint32_t n){
+            occs = new svaha::path_occ_t[n];
+            num_occs = 0;
+        };
+        ~path(){
+            //delete [] occs;
+        };
+        inline void add_node(svaha::node*& n, bool isFWD = true){
+            //svaha::path_occ_t* pt = new svaha::path_occ_t();
+            (occs[num_occs]).node = n;
+            (occs[num_occs]).isforward = isFWD;
+            ++num_occs;
+        };
+        std::string to_string(){
+            if (num_occs == 0) return "";
+            std::ostringstream st;
+            st << "P" << "\t";
+            st << name << "\t";
+            for (size_t i = 0; i < num_occs - 1; ++i){
+                st << ((occs[i]).node)->id << ((occs[i]).isforward ? "+" : "-") << ",";
+            }
+            st << (occs[num_occs - 1].node)->id << ((occs[num_occs -1 ]).isforward ? "+" : "-");
+            return st.str();
+        };  
+
     };
 
     struct pre_contig{
@@ -132,12 +154,14 @@ namespace svaha {
         std::uint32_t seqlen;
         std::uint64_t c_node_id = 0;
         std::uint64_t c_edge_id = 0;
+        std::uint64_t chrom_path_rank = 0;
         //spp::sparse_hash_map<uint64_t, node*> bp_to_node;
-        svaha::node** bp_to_node;
         //spp::sparse_hash_map<uint64_t, TVCF::variant*> bp_to_variant;
+        //spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
+
+        svaha::node** bp_to_node;
         spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_allele;
         spp::sparse_hash_map<uint64_t, node*> bp_to_inserted_node;
-        //spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
         spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_interchrom;
         std::vector<std::uint64_t> breakpoints;
 
@@ -176,6 +200,7 @@ namespace svaha {
             std::vector<std::uint64_t> bps (unis.begin(), unis.end());
             breakpoints = bps;
         };
+
     };
 
 
@@ -195,7 +220,8 @@ namespace svaha {
             return ++curr_edge_id;
         };
         spp::sparse_hash_map<string, pre_contig> name_to_contig;
-        spp::sparse_hash_map<string, path> name_to_path;
+        spp::sparse_hash_map<std::string, svaha::path> name_to_path;
+
         //spp::sparse_hash_map<string, vector<TVCF::variant>> name_to_variants;
         void re_id(){
             std::uint64_t prev_id = 0;
@@ -223,7 +249,7 @@ void usage(){
     cout << "-T / --no-translocations  : ignore interchromosomal variants." << endl;
     //cout << "-t / --threads     : number of OMP threads to use in construction." << endl;
     cout << "-f / --flat          : use flat alternates (every allele is represented by at least one node)." << endl;
-    cout << "-p / --paths         : output path information for variants." << endl;
+    cout << "-p / --paths         : output path information." << endl;
     cout << "-I / --insertions         : FASTA file of insertion variant sequences." << endl;
     cout << "version 0.1" << endl;
 }
@@ -236,6 +262,7 @@ int main(int argc, char** argv){
     char* insertion_file = nullptr;
     bool flat = false;
     bool do_translocations = true;
+    bool output_paths = false;
     int threads = 1;
     int max_node_size = 128;
 
@@ -291,6 +318,9 @@ int main(int argc, char** argv){
                 break;
             case 'f':
                 flat = true;
+                break;
+            case 'p':
+                output_paths = true;
                 break;
             case 'h':
                 usage();
@@ -485,11 +515,6 @@ int main(int argc, char** argv){
         cerr << "Contig " << c.first << " has " << c.second.breakpoints.size() << " breakpoints." << endl;
     }
 
-//    for (auto c : sg.name_to_contig){
-//        for (auto v : c.second.breakpoints){
-//            cerr << v << endl;
-//        }
-//    }
 
 
     cerr << endl << endl;
@@ -513,6 +538,8 @@ int main(int argc, char** argv){
 
     std::uint64_t greatest_prev_id = 0;
 
+    cout << svaha::gfa_version() << endl;
+
     for (auto& c : sg.name_to_contig){
 
 	    cerr << "Building reference backbone for " << c.first << "." << endl;
@@ -524,6 +551,12 @@ int main(int argc, char** argv){
         }
         TFA::getSequence(tf, c.first.c_str(), c.second.seq);
         std::size_t numbp = c.second.breakpoints.size();
+        if (output_paths){
+            svaha::path cp(numbp);
+            cp.name = c.first;
+            sg.name_to_path[c.first] = cp; 
+        }
+
 
         //std::vector<TVCF::variant> contig_vars = sg.name_to_variants.at(c.first);
         std::vector<std::uint64_t> bps = c.second.breakpoints;
@@ -546,12 +579,18 @@ int main(int argc, char** argv){
             // }
             svaha::node* n = sg.create_node();
             pliib::strcopy(c.first.c_str(), n->contig);
-            //cerr << c.second.seqlen << " " << pos << " " << brk - pos << endl;
+            #ifdef DEBUG
+            cerr << c.second.seqlen << " " << pos << " " << brk - pos << endl;
+            #endif
             pliib::strcopy(c.second.seq + pos,  brk - pos, n->seq);
             n->seqlen = brk - pos;
 
             // Emit the node, caching it if we need it later for a variant.
             cout << n->emit() << endl;
+            if (output_paths){
+                sg.name_to_path[c.first].add_node(n);
+            }
+
             //pliib::strdelete(n->seq);
             //cout << n->id << " " << n->contig  << " " << n->seqlen << endl;
 
@@ -568,7 +607,9 @@ int main(int argc, char** argv){
                 //cerr << prev_ref_node->id << "->" << n->id << endl;
                 allele = c.second.bp_to_allele.at(brk);
                 vtype = string(allele->type);
+                #ifdef DEBUG
                 cerr << allele->to_string() << endl;
+                #endif
                 // The below line is bad and idk why :'(
                 //if (pos != allele->pos - 1) continue;
                 
@@ -577,10 +618,9 @@ int main(int argc, char** argv){
                 if (vtype == "DEL" && flat && c.second.bp_to_inserted_node[allele->pos] == nullptr){
                     svaha::node* ins_node = sg.create_node();
                     c.second.bp_to_inserted_node[allele->pos] = ins_node;
-                    cerr << "Created ins node at " <<
-                    allele->pos << " : id=" << 
-                    ins_node->id << 
-                    " for DEL." << endl; 
+                    #ifdef DEBUG
+                    cerr << "Created ins node at " << allele->pos << " : id=" << ins_node->id << " for DEL." << endl; 
+                    #endif
                     // ins_node->seq = n->seq;
                     // ins_node->seqlen = strlen(n->seq);
                     //cout << ins_node->emit() << endl;
@@ -592,9 +632,9 @@ int main(int argc, char** argv){
                 else if (vtype == "INV" && flat && c.second.bp_to_inserted_node[allele->pos] == nullptr){
                     svaha::node* ins_node = sg.create_node();
                     c.second.bp_to_inserted_node[allele->pos] = ins_node;
-                    cerr << "Created ins node at " << allele->pos <<
-                     " : id=" << ins_node->id <<
-                     "for INV." << endl; 
+                    #ifdef DEBUG
+                    cerr << "Created ins node at " << allele->pos << " : id=" << ins_node->id << "for INV." << endl; 
+                     #endif
                 }
                 
                 //cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
@@ -602,12 +642,15 @@ int main(int argc, char** argv){
                 // c.second.bp_to_node[allele->pos - 1] = prev_ref_node;
                 // c.second.bp_to_node[allele->end] = n;
             }
-            else{
+            else if (!flat){
                 //cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
                 // c.second.bp_to_node[brk - 1] = n;
                 // c.second.bp_to_node[pos+1] = n;
+                pliib::strdelete(n->seq);
             }
+            #ifdef DEBUG
             cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
+            #endif
             c.second.bp_to_node[brk - 1] = n;
             c.second.bp_to_node[pos] = n;
 
@@ -656,7 +699,9 @@ int main(int argc, char** argv){
             std::uint64_t zero_based_vpos = allele->pos - 1;
             std::uint64_t zero_based_vend = allele->end - 1;
 
+            #ifdef DEBUG
             cerr << "Variant allele: " << allele->to_string() << " id: " << allele->make_id() << endl;
+            #endif
 
             // Get the nodes right before, right after, and right at the start of the variant.
             // For flat variants, S holds the single-base ref sequence.
@@ -665,7 +710,7 @@ int main(int argc, char** argv){
             svaha::node* pre = c.second.bp_to_node[zero_based_vpos];
             svaha::node* post = c.second.bp_to_node[zero_based_vend + 1];
             
-            //#define DEBUG
+
             #ifdef DEBUG
             cerr << "Processing allele at " << zero_based_vpos << " TO " << zero_based_vend << endl;
                 cerr << "Pre: " << pre->id <<
@@ -757,6 +802,9 @@ int main(int argc, char** argv){
             }
 
             processed_alleles[allele->make_id()] = 1;
+        }
+        if (output_paths){
+            cout << sg.name_to_path[c.first].to_string() << endl;
         }
     }
 
