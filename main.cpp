@@ -515,11 +515,6 @@ int main(int argc, char** argv){
         cerr << "Contig " << c.first << " has " << c.second.breakpoints.size() << " breakpoints." << endl;
     }
 
-//    for (auto c : sg.name_to_contig){
-//        for (auto v : c.second.breakpoints){
-//            cerr << v << endl;
-//        }
-//    }
 
 
     cerr << endl << endl;
@@ -584,7 +579,9 @@ int main(int argc, char** argv){
             // }
             svaha::node* n = sg.create_node();
             pliib::strcopy(c.first.c_str(), n->contig);
-            //cerr << c.second.seqlen << " " << pos << " " << brk - pos << endl;
+            #ifdef DEBUG
+            cerr << c.second.seqlen << " " << pos << " " << brk - pos << endl;
+            #endif
             pliib::strcopy(c.second.seq + pos,  brk - pos, n->seq);
             n->seqlen = brk - pos;
 
@@ -645,10 +642,11 @@ int main(int argc, char** argv){
                 // c.second.bp_to_node[allele->pos - 1] = prev_ref_node;
                 // c.second.bp_to_node[allele->end] = n;
             }
-            else{
+            else if (!flat){
                 //cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
                 // c.second.bp_to_node[brk - 1] = n;
                 // c.second.bp_to_node[pos+1] = n;
+                pliib::strdelete(n->seq);
             }
             #ifdef DEBUG
             cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
