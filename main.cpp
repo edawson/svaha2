@@ -155,11 +155,11 @@ namespace svaha {
         std::uint64_t c_node_id = 0;
         std::uint64_t c_edge_id = 0;
         std::uint64_t chrom_path_rank = 0;
-        //spp::sparse_hash_map<uint64_t, node*> bp_to_node;
+        spp::sparse_hash_map<uint64_t, node*> bp_to_node;
         //spp::sparse_hash_map<uint64_t, TVCF::variant*> bp_to_variant;
         //spp::sparse_hash_map<uint64_t, TVCF::variant*> interchrom_variants;
 
-        svaha::node** bp_to_node;
+        //svaha::node** bp_to_node;
         spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_allele;
         spp::sparse_hash_map<uint64_t, node*> bp_to_inserted_node;
         spp::sparse_hash_map<uint64_t, TVCF::minimal_allele_t*> bp_to_interchrom;
@@ -167,9 +167,9 @@ namespace svaha {
 
         ~pre_contig(){
             pliib::strdelete(seq);
-            if (bp_to_node != nullptr){
-                //delete [] bp_to_node;
-            }
+            // if (bp_to_node != nullptr){
+            //     //delete [] bp_to_node;
+            // }
         };
         void clear_seq(){
             pliib::strdelete(seq);
@@ -466,8 +466,11 @@ int main(int argc, char** argv){
                             if (second_chr == ""){
                                 second_chr = string(var_allele->chrom);
                             }
-                            pliib::strcopy(second_chr.c_str(), var_allele->chrom_2);
-                            sg.name_to_contig.at(string(var_allele->chrom_2)).breakpoints.push_back(var_allele->end);
+                            //else if (acceptable_chroms.find(second_chr) != acceptable_chroms.end()){
+                                pliib::strcopy(second_chr.c_str(), var_allele->chrom_2);
+                                sg.name_to_contig.at(string(var_allele->chrom_2)).breakpoints.push_back(var_allele->end);
+                            //}
+                            
 
 
                             //TVCF::variant v(*var);
@@ -560,7 +563,7 @@ int main(int argc, char** argv){
 
         //std::vector<TVCF::variant> contig_vars = sg.name_to_variants.at(c.first);
         std::vector<std::uint64_t> bps = c.second.breakpoints;
-        c.second.bp_to_node = new svaha::node* [c.second.seqlen];
+        //c.second.bp_to_node = new svaha::node* [c.second.seqlen];
         bool insertion_state = false;
 
         std::uint64_t pos = 0;
@@ -766,7 +769,7 @@ int main(int argc, char** argv){
                 if (flat){
                     // Retrieve the inserted inverted node
                     svaha::node* insy = c.second.bp_to_inserted_node[zero_based_vpos + 1];
-
+                    
                 }
             }
             else if (vtype == "INV"){
@@ -787,6 +790,13 @@ int main(int argc, char** argv){
                     // Grab our inserted inversion node
                     svaha::node* invy = c.second.bp_to_inserted_node[zero_based_vpos + 1];
                     // Fill node sequence with the reverse of the ref node.
+                    pliib::strcopy(s->seq, invy->seq);
+                    pliib::reverse_complement(s->seq, invy->seq, strlen(invy->seq));
+                    cout << invy->emit() << endl;
+                    svaha::edge e(pre, invy);
+                    svaha::edge f(invy, post);
+                    cout << e.emit() << endl;
+                    cout << f.emit() << endl;
 
                 }
 
