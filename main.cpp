@@ -10,6 +10,8 @@
 #include "spp.h"
 #include "gfakluge.hpp"
 
+//#define DEBUG
+
 using namespace std;
 
 namespace svaha {
@@ -127,7 +129,7 @@ namespace svaha {
         ~path(){
             //delete [] occs;
         };
-        inline void add_node(svaha::node* n, bool isFWD = true){
+        inline void add_node(svaha::node*& n, bool isFWD = true){
             //svaha::path_occ_t* pt = new svaha::path_occ_t();
             (occs[num_occs]).node = n;
             (occs[num_occs]).isforward = isFWD;
@@ -608,7 +610,9 @@ int main(int argc, char** argv){
                 //cerr << prev_ref_node->id << "->" << n->id << endl;
                 allele = c.second.bp_to_allele.at(brk);
                 vtype = string(allele->type);
+                #ifdef DEBUG
                 cerr << allele->to_string() << endl;
+                #endif
                 // The below line is bad and idk why :'(
                 //if (pos != allele->pos - 1) continue;
                 
@@ -617,10 +621,9 @@ int main(int argc, char** argv){
                 if (vtype == "DEL" && flat && c.second.bp_to_inserted_node[allele->pos] == nullptr){
                     svaha::node* ins_node = sg.create_node();
                     c.second.bp_to_inserted_node[allele->pos] = ins_node;
-                    cerr << "Created ins node at " <<
-                    allele->pos << " : id=" << 
-                    ins_node->id << 
-                    " for DEL." << endl; 
+                    #ifdef DEBUG
+                    cerr << "Created ins node at " << allele->pos << " : id=" << ins_node->id << " for DEL." << endl; 
+                    #endif
                     // ins_node->seq = n->seq;
                     // ins_node->seqlen = strlen(n->seq);
                     //cout << ins_node->emit() << endl;
@@ -632,9 +635,9 @@ int main(int argc, char** argv){
                 else if (vtype == "INV" && flat && c.second.bp_to_inserted_node[allele->pos] == nullptr){
                     svaha::node* ins_node = sg.create_node();
                     c.second.bp_to_inserted_node[allele->pos] = ins_node;
-                    cerr << "Created ins node at " << allele->pos <<
-                     " : id=" << ins_node->id <<
-                     "for INV." << endl; 
+                    #ifdef DEBUG
+                    cerr << "Created ins node at " << allele->pos << " : id=" << ins_node->id << "for INV." << endl; 
+                     #endif
                 }
                 
                 //cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
@@ -647,7 +650,9 @@ int main(int argc, char** argv){
                 // c.second.bp_to_node[brk - 1] = n;
                 // c.second.bp_to_node[pos+1] = n;
             }
+            #ifdef DEBUG
             cerr << "N: " << n->id << " brk-1: " << brk - 1 << " pos: " << pos << endl;
+            #endif
             c.second.bp_to_node[brk - 1] = n;
             c.second.bp_to_node[pos] = n;
 
@@ -696,7 +701,9 @@ int main(int argc, char** argv){
             std::uint64_t zero_based_vpos = allele->pos - 1;
             std::uint64_t zero_based_vend = allele->end - 1;
 
+            #ifdef DEBUG
             cerr << "Variant allele: " << allele->to_string() << " id: " << allele->make_id() << endl;
+            #endif
 
             // Get the nodes right before, right after, and right at the start of the variant.
             // For flat variants, S holds the single-base ref sequence.
@@ -705,7 +712,7 @@ int main(int argc, char** argv){
             svaha::node* pre = c.second.bp_to_node[zero_based_vpos];
             svaha::node* post = c.second.bp_to_node[zero_based_vend + 1];
             
-            //#define DEBUG
+
             #ifdef DEBUG
             cerr << "Processing allele at " << zero_based_vpos << " TO " << zero_based_vend << endl;
                 cerr << "Pre: " << pre->id <<
