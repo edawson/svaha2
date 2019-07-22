@@ -414,7 +414,7 @@ int main(int argc, char** argv){
 
             char* current_contig = nullptr;
             //std::vector<std::uint64_t> breakpoints;
-            int mxlsz = 2000;
+            int mxlsz = 15000;
             char* line = new char[mxlsz];
 
             while (vfi.getline(line, mxlsz)){
@@ -432,43 +432,66 @@ int main(int argc, char** argv){
                     //cerr << "Creating breakpoint at [" << var->zero_based_position() <<
                     //    ", " << var->get_reference_end(0) << "] for variant type " << var->get_info("SVTYPE") << endl;
 
-                    if (TFA::hasSequence(tf, var->chrom)){
-                        if (acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end()){
-                            std::uint64_t on_chrom_position = var->zero_based_position() + 1;
-                            string svtype = var->get_sv_type();
-                            TVCF::minimal_allele_t* var_allele = new TVCF::minimal_allele_t();
-                            pliib::strcopy(var->chrom, var_allele->chrom);
-                            pliib::strcopy(var->get_sv_type().c_str(), var_allele->type);
-                            std::uint64_t svend = var->get_sv_end() + 1;
-                            if (svend == 0 || on_chrom_position == 0){
-                                pliib::strdelete(var_allele->chrom);
-                                pliib::strdelete(var_allele->type);
-                                delete var;
-                                continue;
-                            }
+                    bool seq_in_fasta = TFA::hasSequence(tf, var->chrom);
+                    bool seq_in_bed = acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end();
 
-                            // Correct for flat alleles
-                            if (flat && (svtype == "DEL" || svtype == "INS")){
-                                on_chrom_position = on_chrom_position - 1;
-                                sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(on_chrom_position + 1);
-                            }
-                            sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(on_chrom_position);
-                            var_allele->pos = on_chrom_position;
-                            // TODO: going to have to refactor this to handle SNVs
+                    if (! seq_in_fasta){
+                        cerr << "ERROR: chrom not found: " << var->chrom  << " or " << var->get_info("CHR2") << "; are you using a VCF and FASTA from the same reference?" << endl;
+                        cerr << "EXITING" << endl;
+                        exit(9);
+                    }
+                    else if (! seq_in_bed){
+                        continue;
+                    }
+                    std::uint64_t on_chrom_position = var->zero_based_position() + 1;
+                    string svtype = var->get_sv_type();
+                    TVCF::minimal_allele_t* var_allele = new TVCF::minimal_allele_t();
+
+                    string second_chr = var->get_info("CHR2");
+                    if (second_chr == ""){
+                        second_chr = string(var->chrom);
+                    }
+                    else if (second_chr != string(var->chrom) && !do_translocations){
+                        delete var_allele;
+                        delete var;
+                        continue;
+                    }
+
+
+
+                    pliib::strcopy(var->chrom, var_allele->chrom);
+                    pliib::strcopy(var->get_sv_type().c_str(), var_allele->type);
+                    std::uint64_t svend = var->get_sv_end() + 1;
+                    if (svend == 0 || on_chrom_position == 0){
+                        pliib::strdelete(var_allele->chrom);
+                        pliib::strdelete(var_allele->type);
+                        delete var;
+                        continue;
+                    }
+
+                    // Correct for flat alleles
+                    if (flat && (svtype == "DEL" || svtype == "INS")){
+                        on_chrom_position = on_chrom_position - 1;
+                        sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(on_chrom_position + 1);
+                        }
+                    sg.name_to_contig.at(string(var->chrom)).breakpoints.push_back(on_chrom_position);
+                    var_allele->pos = on_chrom_position;
+                    // TODO: going to have to refactor this to handle SNVs
                                 
-                            if (svtype == "INS"){
-                                svend = on_chrom_position + 1;
+                    if (svtype == "INS"){
+                        svend = on_chrom_position + 1;
+                        string seq = var->get_info("SEQ");
+                        if (seq != ""){
+                                pliib::strcopy(var->get_info("SEQ").c_str(), var_allele->allele_string);
                             }
-                            // Zero-orient that breakpoint
-                            var_allele->end = svend -1 ;
+                    }
+                    // Zero-orient that breakpoint
+                    var_allele->end = svend -1 ;
 
-                            string second_chr = var->get_info("CHR2");
-                            if (second_chr == ""){
-                                second_chr = string(var_allele->chrom);
-                            }
+
                             //else if (acceptable_chroms.find(second_chr) != acceptable_chroms.end()){
-                                pliib::strcopy(second_chr.c_str(), var_allele->chrom_2);
-                                sg.name_to_contig.at(string(var_allele->chrom_2)).breakpoints.push_back(var_allele->end);
+                    pliib::strcopy(second_chr.c_str(), var_allele->chrom_2);
+                    sg.name_to_contig.at(string(var_allele->chrom_2)).breakpoints.push_back(var_allele->end);
                             //}
                             
 
@@ -483,20 +506,10 @@ int main(int argc, char** argv){
                             //         sg.name_to_contig.at(c2).breakpoints.push_back(var->get_reference_end(0));
                             //     }
                             // }
-                            sg.name_to_contig.at(string(var_allele->chrom)).bp_to_allele[var_allele->pos] = var_allele;
+                    sg.name_to_contig.at(string(var_allele->chrom)).bp_to_allele[var_allele->pos] = var_allele;
                             // if (var_allele->chrom != var_allele->chrom_2)
                             //     sg.name_to_contig.at(string(var_allele->chrom_2)).bp_to_allele[var_allele->end] = var_allele;
 
-                        }
-                        else{
-                            continue;
-                        }
-                    }
-                    else{
-                        cerr << "ERROR: chrom not found: " << var->chrom  << " or " << var->get_info("CHR2") << "; are you using a VCF and FASTA from the same reference?" << endl;
-                        cerr << "EXITING" << endl;
-                        exit(9);
-                    }
                     var_count += 1;
                     delete var;
                 }
@@ -631,6 +644,7 @@ int main(int argc, char** argv){
                 else if (vtype == "INS"){
                     svaha::node* ins_node = sg.create_node();
                     c.second.bp_to_inserted_node[allele->pos] = ins_node;
+                    pliib::strcopy(allele->allele_string, ins_node->seq);
                 }
                 else if (vtype == "INV" && flat && c.second.bp_to_inserted_node[allele->pos] == nullptr){
                     svaha::node* ins_node = sg.create_node();
@@ -765,6 +779,12 @@ int main(int argc, char** argv){
             }
             else if (vtype == "INS" || vtype == ""){
 
+                svaha::node* insy = c.second.bp_to_inserted_node[zero_based_vpos + 1];
+                svaha::edge e(pre, insy);
+                svaha::edge f(insy, post);
+                cout << insy->emit() << endl;
+                cout << e.emit() << endl;
+                cout << f.emit() << endl;
 
                 if (flat){
                     // Retrieve the inserted inverted node
