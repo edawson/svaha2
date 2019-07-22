@@ -441,6 +441,9 @@ int main(int argc, char** argv){
                         exit(9);
                     }
                     else if (! seq_in_bed){
+                        #ifdef DEBUG
+                        cerr << "Sequence not found in allowed regions [" << var->chrom << "]; skipping." << endl;
+                        #endif
                         continue;
                     }
                     std::uint64_t on_chrom_position = var->zero_based_position() + 1;
@@ -452,12 +455,13 @@ int main(int argc, char** argv){
                         second_chr = string(var->chrom);
                     }
                     else if (second_chr != string(var->chrom) && !do_translocations){
+                        #ifdef DEBUG
+                        cerr << "Skipping interchrom variant " << var->chrom << " " << var->pos << endl;
+                        #endif
                         delete var_allele;
                         delete var;
                         continue;
                     }
-
-
 
                     pliib::strcopy(var->chrom, var_allele->chrom);
                     pliib::strcopy(var->get_sv_type().c_str(), var_allele->type);
@@ -483,7 +487,7 @@ int main(int argc, char** argv){
                         string seq = var->get_info("SEQ");
                         if (seq != ""){
                                 pliib::strcopy(var->get_info("SEQ").c_str(), var_allele->allele_string);
-                            }
+                        }
                     }
                     // Zero-orient that breakpoint
                     var_allele->end = svend -1 ;
@@ -643,7 +647,9 @@ int main(int argc, char** argv){
                 }
                 else if (vtype == "INS"){
                     svaha::node* ins_node = sg.create_node();
+                    svaha::node* dupl = sg.create_node();
                     c.second.bp_to_inserted_node[allele->pos] = ins_node;
+                    c.second.bp_to_inserted_node[allele->pos - 1] = dupl;
                     pliib::strcopy(allele->allele_string, ins_node->seq);
                 }
                 else if (vtype == "INV" && flat && c.second.bp_to_inserted_node[allele->pos] == nullptr){
@@ -779,16 +785,35 @@ int main(int argc, char** argv){
             }
             else if (vtype == "INS" || vtype == ""){
 
-                svaha::node* insy = c.second.bp_to_inserted_node[zero_based_vpos + 1];
-                svaha::edge e(pre, insy);
-                svaha::edge f(insy, post);
-                cout << insy->emit() << endl;
-                cout << e.emit() << endl;
-                cout << f.emit() << endl;
+                // Retrieve the inserted inverted node
 
-                if (flat){
-                    // Retrieve the inserted inverted node
-                    svaha::node* insy = c.second.bp_to_inserted_node[zero_based_vpos + 1];
+                svaha::node* insy = c.second.bp_to_inserted_node.at(zero_based_vpos + 1);
+                cout << insy->emit() << endl;
+                
+                if (!flat){
+                    svaha::edge e(pre, insy);
+                    svaha::edge f(insy, post);
+                    cout << e.emit() << endl;
+                    cout << f.emit() << endl;
+                }
+                else{
+
+                    svaha::node* dupl = c.second.bp_to_inserted_node.at(zero_based_vend);
+                    post = c.second.bp_to_node.at(zero_based_vend + 2);
+                    pliib::strcopy(s->seq, dupl->seq);
+                    cout << dupl->emit() << endl;
+                    
+                    svaha::edge e(pre, dupl);
+                    svaha::edge f(dupl, insy);
+                    svaha::edge g(insy, post);
+                    // svaha::edge h(pre, dupl);
+                    // svaha::edge j(dupl, post);
+                    cout << e.emit() << endl;
+                    cout << f.emit() << endl;
+                    cout << g.emit() << endl;
+                    // cout << h.emit() << endl;
+                    // cout << j.emit() << endl;
+
                     
                 }
             }
