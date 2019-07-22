@@ -4,7 +4,7 @@ BASH_TAP_ROOT=../bash-tap
 . ../bash-tap/bash-tap-bootstrap
 
 
-plan tests 2
+plan tests 3
 
 svaha=../svaha2
 data=..//data
@@ -19,3 +19,4 @@ is "$(${svaha} -r ${data}/tgraph.fa -v ${data}/tdel.vcf -f | grep -v "^P\|^H" | 
 ## Insertion Tests
 
 ## Translocation tests
+is "$(${svaha} -r ${data}/translocation_graph.fa -v ${data}/ttra.vcf -T | sort | md5sum | cut -f 1 -d ' ' )" "7782740039ce19394c4ccd92d34da8e0" "Translocations are skipped with -T"
