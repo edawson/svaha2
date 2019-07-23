@@ -73,6 +73,7 @@ Roughly, the svaha algorithm works as follows:
 ```
 ## Feature Roadmap
 
+- [ ] Lightweight storage of GFA paths (probably file backed). These are super expensive at the moment.
 - [ ] Output maps to memory-mapped files, rather than keeping them in memory.  
 - [ ] Big performance boost by reducing number of loops (all variant types except interchromosomals). This requires file-backed maps.
 - [ ] Multiple variants at a site (will increase memory usage).  
