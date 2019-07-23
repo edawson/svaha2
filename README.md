@@ -12,14 +12,14 @@ variation graph construction. It cleans up the code significantly and makes use 
 libraries. Performance is slightly improved.
 
 
-With svaha2, you can make variation graphs from structural variants:
-[x] Deletions  
-[x] Inversions  
-[x] Insertions  
-[ ] SNPs  
-[ ] Duplications  
-[x] Transversions  
-[ ] Breakpoints  
+With svaha2, you can make variation graphs from structural variants:  
+- [x] Deletions  
+- [x] Inversions  
+- [x] Insertions  
+- [ ] SNPs  
+- [ ] Duplications  
+- [x] Transversions  
+- [ ] Breakpoints  
 
 In addition, there are currently some limitations on variants:
 
