@@ -51,25 +51,34 @@ options:
 ## Algorithm
 
 Roughly, the svaha algorithm works as follows:
-
+```
 1. Read in all variants. Compute the breakpoints for each variant, and store a map(basepair -> variant allele).
 2. Add any breakpoints needed for maxmimum node size.
 3. For each contig, sort its breakpoints. Remove any duplicates and any invalid ones (first/last base of sequence).
 4. For each contig:
-    5. For each breakpoint b in the contig's breakpoints
+    5. For each breakpoint b in the contig's breakpoints  
         - Create a node
         - Fill it with the reference subseqence from the previous breakpoint to the current one.
         - If there is a variant at the node's position, cache the node in a map from position to node.
         - If the node is cached, also cache the preceding node.
-        - If the variant is flat, or an insertion / substitution, create a node. Store it in a map from position to inserted nodes;
+        - If the variant is flat, or an insertion / substitution, create a node. Store it in a map from position to inserted nodes.  
+        - Output the node in GFA format, add it the ref path if needed, and add an edge to the previous ref node if this node is also on the reference
+        path.
+6. For each contig  
+    7. For each cached position-variant allele in the position->variant allele map. 
+        - Collect the relevant nodes before / in / after the variant (depending on if it's flat or not).  
+        - Create edges to represent the variant based on its SVTYPE.  
+        - Ouput nodes and edges in GFA.  
 
+```
 ## Feature Roadmap
 
-[ ] Multiple variants at a site (will increase memory usage).  
-[ ] Output maps to memory-mapped files, rather than keeping them in memory.  
-[ ] We build everything by contig right now. That's probably fine, but it could be too much for SNVs and indels.  
-[ ] Duplication handling. This is easy, but it's a bit moot given that aligners don't like cyclic structures.  
-[ ] Tabix / VCF-index handling. This will greatly improve memory usage by no longer requiring alleles to stay in memory.  
-[ ] Optional GFA1 / GFA2 output. Right now, we just output GFA1 (but this is easily converted with GFAKluge).  
-[ ] Threading (zoom zoom).  
+- [ ] Output maps to memory-mapped files, rather than keeping them in memory.  
+- [ ] Big performance boost by reducing number of loops (all variant types except interchromosomals). This requires file-backed maps.
+- [ ] Multiple variants at a site (will increase memory usage).  
+- [ ] We build everything by contig right now. That's probably fine, but it could be too much for SNVs and indels.  
+- [ ] Duplication handling. This is easy, but it's a bit moot given that aligners don't like cyclic structures.  
+- [ ] Tabix / VCF-index handling. This will greatly improve memory usage by no longer requiring alleles to stay in memory.  
+- [ ] Optional GFA1 / GFA2 output. Right now, we just output GFA1 (but this is easily converted with GFAKluge).  
+- [ ] Threading (zoom zoom).  
 
