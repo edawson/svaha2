@@ -106,6 +106,43 @@ namespace svaha {
         };
     };
 
+    struct walk_t{
+        char* pathname;
+        bool ori_forward;
+        std::uint64_t rank;
+        svaha::node* node;
+
+        walk_t(svaha::node*& n, char* p, std::uint64_t r, bool ori = true){
+            node = n;
+            pliib::strcopy(p, pathname);
+            rank = r;
+            ori_forward = ori;
+        }
+
+        ~walk_t(){
+            if (pathname != nullptr){
+                pliib::strdelete(pathname);
+            }
+        }
+
+        std::string to_string(){
+            std::ostringstream st;
+            st << "W" << "\t" << node->id << "\t" << (ori_forward ? "+" : "-") <<"\t" << pathname << "\t" << rank << "\t" ;
+            return st.str();
+        };
+    };
+
+    struct walker_t{
+        std::uint64_t rank;
+        char* pathname;
+        std::uint64_t get_next_rank(){
+            return ++rank;
+        };
+        walk_t add_node(svaha::node*& n, bool forward = true){
+            walk_t w(n, pathname, get_next_rank(), forward);
+        };
+    };
+
     struct path_occ_t{
         svaha::node* node = nullptr;
         bool isforward = true;
@@ -113,10 +150,11 @@ namespace svaha {
 
 
     struct path{
-        std::uint64_t id = 0;
-        std::string name;
         // Holds nodes/orientations
         svaha::path_occ_t* occs;
+        std::uint64_t id = 0;
+        std::string name;
+        
         std::uint32_t num_occs = 0;
         path(){
             occs = new svaha::path_occ_t[3];
@@ -242,7 +280,7 @@ void usage(){
     cout << "svaha2: linear-time, low-memory construction of variation graphs." << endl;
     cout << "Usage: svaha2 [options] -r <ref.fa> -v <variants.vcf> " << endl;
     cout << "options:" << endl;
-    cout << "-m / --max-node-size : maximum length (in basepairs) of a node in the graph." << endl;
+    cout << "-m / --max-node-size : maximum length (in basepairs) of a node in the graph. [default: 32]" << endl;
     cout << "-r / --reference     : The reference genome to use for construction." << endl;
     cout << "-v / --vcf           : A VCF file to use for construction." << endl;
     cout << "-b / --bed           : a bed file to restrict chromosomes to." << endl;
@@ -264,7 +302,7 @@ int main(int argc, char** argv){
     bool do_translocations = true;
     bool output_paths = false;
     int threads = 1;
-    int max_node_size = 128;
+    int max_node_size = 32;
 
     int c;
     int optind = 2;
