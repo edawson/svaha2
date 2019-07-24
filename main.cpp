@@ -140,6 +140,7 @@ namespace svaha {
         };
         walk_t add_node(svaha::node*& n, bool forward = true){
             walk_t w(n, pathname, get_next_rank(), forward);
+            return w;
         };
     };
 
