@@ -141,6 +141,7 @@ namespace svaha {
         };
 
         walker_t(char*& s){
+            this->rank = 0;
             pliib::strcopy(s, this->pathname);
         };
 
