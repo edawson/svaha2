@@ -135,6 +135,9 @@ namespace svaha {
     struct walker_t{
         std::uint64_t rank;
         char* pathname;
+	    walker_t(){
+            rank = 0;
+	    }
         std::uint64_t get_next_rank(){
             return ++rank;
         };
