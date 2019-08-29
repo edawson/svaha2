@@ -15,7 +15,7 @@ fast: main.cpp tinyFA/tinyFA.hpp gfakluge/src/gfakluge.hpp tinyVCF/tinyVCF.hpp M
 .PHONY: clean fast test
 
 test: $(EXEC)
-	cd tests/ && prove test.sh
+	cd tests/ && prove -v test.sh
 
 clean:
 	$(RM) $(EXEC)
