@@ -18,7 +18,7 @@ With svaha2, you can make variation graphs from structural variants:
 - [x] Insertions  
 - [ ] SNPs  
 - [ ] Duplications  
-- [x] Transversions  
+- [x] Translocations   
 - [ ] Breakpoints  
 
 In addition, there are currently some limitations on variants:
