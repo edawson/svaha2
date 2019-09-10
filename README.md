@@ -18,7 +18,7 @@ With svaha2, you can make variation graphs from structural variants:
 - [x] Insertions  
 - [ ] SNPs  
 - [ ] Duplications  
-- [x] Transversions  
+- [x] Translocations   
 - [ ] Breakpoints  
 
 In addition, there are currently some limitations on variants:
@@ -80,6 +80,7 @@ Roughly, the svaha algorithm works as follows:
 - [ ] We build everything by contig right now. That's probably fine, but it could be too much for SNVs and indels.  
 - [ ] Duplication handling. This is easy, but it's a bit moot given that aligners don't like cyclic structures.  
 - [ ] Tabix / VCF-index handling. This will greatly improve memory usage by no longer requiring alleles to stay in memory.  
-- [ ] Optional GFA1 / GFA2 output. Right now, we just output GFA1 (but this is easily converted with GFAKluge).  
-- [ ] Threading (zoom zoom).  
+- [ ] GFA indexing using [tinyGFA](https://github.com/edawson/tinyGFA). This means we no longer need to cache nodes, just their IDs (128+bit struct -> 64bit Int).  
+- [ ] Optional GFA1 / GFA2 output. Right now, we just output GFA1 (but this is easily converted with GFAKluge). All Links are valid Edges so this just requires adding the args and some hhandling logic.  
+- [ ] Threading (zoom zoom). But we'll have to be careful about buffering output so the threads don't just thrash the disk and making sure to keep RAM usage down by getting rid of the reference sequences ASAP (although this is still a max of <4GB if we keep the whole Human genome).
 
