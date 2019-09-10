@@ -408,7 +408,7 @@ int main(int argc, char** argv){
         else{
             cerr << "FASTA index found for " << insertion_file << endl;
             parseFAIndex(insertion_file, insertion_tf);
-            cerr << "Parsed fasta index with " << tf.seq_to_entry.size() << " entries." << endl;
+            cerr << "Parsed fasta index with " << insertion_tf.seq_to_entry.size() << " entries." << endl;
         }
     }
 
@@ -443,6 +443,7 @@ int main(int argc, char** argv){
         std::string name(x.first);
         if (acceptable_chroms.find(name) != acceptable_chroms.end()){
             sg.name_to_contig[name] = p;
+            getSequenceLength(tf, x.first, sg.name_to_contig.at(name).seqlen);
             //std::vector<TVCF::variant> bps;
             //sg.name_to_variants[name] = bps;
         }
@@ -478,20 +479,32 @@ int main(int argc, char** argv){
                     //    ", " << var->get_reference_end(0) << "] for variant type " << var->get_info("SVTYPE") << endl;
 
                     bool seq_in_fasta = TFA::hasSequence(tf, var->chrom);
-                    bool seq_in_bed = acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end();
+                    bool seq_in_bed = acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end() &&
+                    (var->get_info("CHR2") == "" | acceptable_chroms.find(var->get_info("CHR2")) != acceptable_chroms.end());
+                        
+                    //acceptable_chroms.find(var->get_info("CHR2")) != acceptable_chroms.end();
 
-                    if (! seq_in_fasta){
-                        cerr << "ERROR: chrom not found: " << var->chrom  << " or " << var->get_info("CHR2") << "; are you using a VCF and FASTA from the same reference?" << endl;
+                    if (!seq_in_bed){
+                        cerr << "Sequence not found in allowed regions [" << var->chrom << "]; skipping." << endl;
+                        continue;
+                    }
+                    else if (! seq_in_fasta){
+                        cerr << "ERROR: chrom not found: " <<
+                            var->chrom  << " or " << var->get_info("CHR2") <<
+                            "; are you using a VCF and FASTA from the same reference?" << endl;
                         cerr << "EXITING" << endl;
                         exit(9);
                     }
-                    else if (! seq_in_bed){
-                        #ifdef DEBUG
-                        cerr << "Sequence not found in allowed regions [" << var->chrom << "]; skipping." << endl;
-                        #endif
-                        continue;
-                    }
+
                     std::uint64_t on_chrom_position = var->zero_based_position() + 1;
+
+                    bool valid_length = var->pos <= sg.name_to_contig.at(string(var->chrom)).seqlen;
+
+                    if (!valid_length){
+
+                        cerr << "ERROR: variant's position is greater than the length of the sequence. Please check that the right reference was used." << endl;
+                        cerr << var->chrom << "position: " << on_chrom_position << " sequence length: " << sg.name_to_contig.at(string(var->chrom)).seqlen << endl;
+                    }
                     string svtype = var->get_sv_type();
                     TVCF::minimal_allele_t* var_allele = new TVCF::minimal_allele_t();
 
