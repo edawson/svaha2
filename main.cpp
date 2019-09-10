@@ -136,13 +136,17 @@ namespace svaha {
         std::uint64_t rank;
         char* pathname;
 	    walker_t(){
-            rank = 0;
-	    }
+            this->rank = 0;
+	    };
+        walker_t(const char* s){
+            pliib::strcopy(s, this->pathname);
+        }
         std::uint64_t get_next_rank(){
             return ++rank;
         };
         walk_t add_node(svaha::node*& n, bool forward = true){
             walk_t w(n, pathname, get_next_rank(), forward);
+            return w;
         };
     };
 
