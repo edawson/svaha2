@@ -4,7 +4,7 @@ BASH_TAP_ROOT=../bash-tap
 . ../bash-tap/bash-tap-bootstrap
 
 
-plan tests 5
+plan tests 6
 
 svaha=../svaha2
 data=..//data
@@ -22,3 +22,5 @@ is "$(${svaha} -r ${data}/tgraph.fa -v ${data}/tins.vcf -f -m 128 | sort | md5su
 
 ## Translocation tests
 is "$(${svaha} -r ${data}/translocation_graph.fa -v ${data}/ttra.vcf -T -m 128 | sort | md5sum | cut -f 1 -d ' ' )" "7782740039ce19394c4ccd92d34da8e0" "Translocations are skipped with -T"
+
+is "$(${svaha} -r ${data}/translocation_graph.fa -v ${data}/ttra.vcf -m 128 | sort | md5sum | cut -f 1 -d ' ')" "1ef1acb6712aa63b06be26503f648443" "A graph with a single translocation can be built"
