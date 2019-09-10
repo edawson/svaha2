@@ -508,9 +508,10 @@ int main(int argc, char** argv){
                     if (!valid_length){
 
                         cerr << "ERROR: variant's position is greater than the length of the sequence. Please check that the right reference was used." << endl;
-                        cerr << var->chrom << "position: " << on_chrom_position << " sequence length: " << sg.name_to_contig.at(string(var->chrom)).seqlen << endl;
+                        cerr << "Skipping " << var->chrom << "position: " << on_chrom_position << " sequence length: " << sg.name_to_contig.at(string(var->chrom)).seqlen << endl;
                         continue;
                     }
+
                     string svtype = var->get_sv_type();
                     TVCF::minimal_allele_t* var_allele = new TVCF::minimal_allele_t();
 
@@ -694,6 +695,7 @@ int main(int argc, char** argv){
                 #ifdef DEBUG
                 cerr << allele->to_string() << endl;
                 #endif
+
                 // The below line is bad and idk why :'(
                 //if (pos != allele->pos - 1) continue;
                 
