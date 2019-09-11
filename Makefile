@@ -9,7 +9,7 @@ fast: main.cpp tinyFA/tinyFA.hpp gfakluge/src/gfakluge.hpp tinyVCF/tinyVCF.hpp M
 	$(CXX) -O3 -mtune=native -march=native -funroll-loops -std=c++14 -fopenmp -o $(EXEC) $< $(LD_INC_FLAGS) $(LD_LIB_FLAGS)
 
 debug: main.cpp tinyFA/tinyFA.hpp gfakluge/src/gfakluge.hpp tinyVCF/tinyVCF.hpp Makefile
-	$(CXX) -O0 -std=c++14 -g -pg -ggdb -DDEBUG=1 -o $@ $< $(LD_INC_FLAGS) $(LD_LIB_FLAGS)
+	$(CXX) -O0 -std=c++14 -g -pg -ggdb -o $@ $< $(LD_INC_FLAGS) $(LD_LIB_FLAGS)
 
 
 
