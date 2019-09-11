@@ -252,16 +252,16 @@ namespace svaha {
         uint64_t max_edge_id = 0;
         uint64_t curr_node_id = 0;
         uint64_t curr_edge_id = 0;
-        node* create_node(){
-            node* n = new node();
+        void create_node(svaha::node*& n){
+            n = new node();
             n->id = ++curr_node_id;
-            return n;
         };
         std::uint64_t edge_id(){
             return ++curr_edge_id;
         };
         spp::sparse_hash_map<string, pre_contig> name_to_contig;
         spp::sparse_hash_map<std::string, svaha::path> name_to_path;
+        spp::sparse_hash_map<std::string, svaha::walker_t> name_to_walker;
 
         //spp::sparse_hash_map<string, vector<TVCF::variant>> name_to_variants;
         void re_id(){
@@ -511,6 +511,7 @@ int main(int argc, char** argv){
                         pliib::strdelete(var_allele->chrom);
                         pliib::strdelete(var_allele->type);
                         delete var;
+                        delete var_allele;
                         continue;
                     }
 
@@ -638,7 +639,8 @@ int main(int argc, char** argv){
             // if (brk == 0){
             //     continue;
             // }
-            svaha::node* n = sg.create_node();
+            svaha::node* n;
+            sg.create_node(n);
             pliib::strcopy(c.first.c_str(), n->contig);
             #ifdef DEBUG
             cerr << c.second.seqlen << " " << pos << " " << brk - pos << endl;
@@ -677,7 +679,8 @@ int main(int argc, char** argv){
                 // Right now, just check if a node exists at our insertion position,
                 // but we should instead use a vector at each position and check the variant hashes.
                 if (vtype == "DEL" && flat && c.second.bp_to_inserted_node[allele->pos] == nullptr){
-                    svaha::node* ins_node = sg.create_node();
+                    svaha::node* ins_node;
+                    sg.create_node(ins_node);
                     c.second.bp_to_inserted_node[allele->pos] = ins_node;
                     #ifdef DEBUG
                     cerr << "Created ins node at " << allele->pos << " : id=" << ins_node->id << " for DEL." << endl; 
@@ -687,14 +690,17 @@ int main(int argc, char** argv){
                     //cout << ins_node->emit() << endl;
                 }
                 else if (vtype == "INS"){
-                    svaha::node* ins_node = sg.create_node();
-                    svaha::node* dupl = sg.create_node();
+                    svaha::node* ins_node;
+                    sg.create_node(ins_node);
+                    svaha::node* dupl;
+                    sg.create_node(dupl);
                     c.second.bp_to_inserted_node[allele->pos] = ins_node;
                     c.second.bp_to_inserted_node[allele->pos - 1] = dupl;
                     pliib::strcopy(allele->allele_string, ins_node->seq);
                 }
                 else if (vtype == "INV" && flat && c.second.bp_to_inserted_node[allele->pos] == nullptr){
-                    svaha::node* ins_node = sg.create_node();
+                    svaha::node* ins_node;
+                    sg.create_node(ins_node);
                     c.second.bp_to_inserted_node[allele->pos] = ins_node;
                     #ifdef DEBUG
                     cerr << "Created ins node at " << allele->pos << " : id=" << ins_node->id << "for INV." << endl; 
@@ -724,12 +730,17 @@ int main(int argc, char** argv){
                 prev_ref_node->contig != NULL ){
                 svaha::edge e(prev_ref_node, n);
                 cout << e.emit() << endl;
-                //delete prev_ref_node;
+                if (c.second.bp_to_allele.find(pos) == c.second.bp_to_allele.end() &&
+                (c.second.bp_to_interchrom.find(pos) == c.second.bp_to_interchrom.end() && do_translocations)){
+                   //delete prev_ref_node;
+                }
                 prev_ref_node = n;
             }
             else if(pos == 0){
                 prev_ref_node = n;
             }
+
+
             //  if (pos != 0){
             //      cout << c.second.bp_to_node[pos]->id << endl;
             //      cout << c.second.bp_to_node[last_ref_node_pos]->id << endl;
