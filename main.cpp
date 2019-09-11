@@ -502,7 +502,6 @@ int main(int argc, char** argv){
                     if (var->get_info("CHR2") != "" &&
                             var->get_info("CHR2") != std::string(var->chrom)){
                          valid_length = valid_length && std::stoull(var->get_info("END")) <= sg.name_to_contig.at(var->get_info("CHR2")).seqlen;
-                    
                     }
 
                     if (!valid_length){
