@@ -1,5 +1,5 @@
 CXX:=g++
-CXXFLAGS:= -O0 -g -fopenmp -ggdb -std=c++14
+CXXFLAGS:= -O3 -mtune=native -march=native -fopenmp -std=c++14
 LD_INC_FLAGS:=  -I./gfakluge/src -I./sparsepp/sparsepp -I./tinyVCF -I./tinyVCF/Hash-master/src -I./tinyFA -I./tinyFA/pliib/
 LD_LIB_FLAGS:=
 
@@ -9,7 +9,7 @@ fast: main.cpp tinyFA/tinyFA.hpp gfakluge/src/gfakluge.hpp tinyVCF/tinyVCF.hpp M
 	$(CXX) -O3 -mtune=native -march=native -funroll-loops -std=c++14 -fopenmp -o $(EXEC) $< $(LD_INC_FLAGS) $(LD_LIB_FLAGS)
 
 debug: main.cpp tinyFA/tinyFA.hpp gfakluge/src/gfakluge.hpp tinyVCF/tinyVCF.hpp Makefile
-	$(CXX) $(CXXFLAGS) -DDEBUG=1 -o $@ $< $(LD_INC_FLAGS) $(LD_LIB_FLAGS)
+	$(CXX) -O0 -std=c++14 -g -pg -ggdb -o $@ $< $(LD_INC_FLAGS) $(LD_LIB_FLAGS)
 
 
 

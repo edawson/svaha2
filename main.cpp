@@ -136,13 +136,17 @@ namespace svaha {
         std::uint64_t rank;
         char* pathname;
 	    walker_t(){
-            rank = 0;
-	    }
+            this->rank = 0;
+	    };
+        walker_t(const char* s){
+            pliib::strcopy(s, this->pathname);
+        }
         std::uint64_t get_next_rank(){
             return ++rank;
         };
         walk_t add_node(svaha::node*& n, bool forward = true){
             walk_t w(n, pathname, get_next_rank(), forward);
+            return w;
         };
     };
 
@@ -404,7 +408,7 @@ int main(int argc, char** argv){
         else{
             cerr << "FASTA index found for " << insertion_file << endl;
             parseFAIndex(insertion_file, insertion_tf);
-            cerr << "Parsed fasta index with " << tf.seq_to_entry.size() << " entries." << endl;
+            cerr << "Parsed fasta index with " << insertion_tf.seq_to_entry.size() << " entries." << endl;
         }
     }
 
@@ -439,6 +443,7 @@ int main(int argc, char** argv){
         std::string name(x.first);
         if (acceptable_chroms.find(name) != acceptable_chroms.end()){
             sg.name_to_contig[name] = p;
+            getSequenceLength(tf, x.first, sg.name_to_contig.at(name).seqlen);
             //std::vector<TVCF::variant> bps;
             //sg.name_to_variants[name] = bps;
         }
@@ -474,20 +479,38 @@ int main(int argc, char** argv){
                     //    ", " << var->get_reference_end(0) << "] for variant type " << var->get_info("SVTYPE") << endl;
 
                     bool seq_in_fasta = TFA::hasSequence(tf, var->chrom);
-                    bool seq_in_bed = acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end();
+                    bool seq_in_bed = acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end() &&
+                    (var->get_info("CHR2") == "" | acceptable_chroms.find(var->get_info("CHR2")) != acceptable_chroms.end());
+                        
+                    //acceptable_chroms.find(var->get_info("CHR2")) != acceptable_chroms.end();
 
-                    if (! seq_in_fasta){
-                        cerr << "ERROR: chrom not found: " << var->chrom  << " or " << var->get_info("CHR2") << "; are you using a VCF and FASTA from the same reference?" << endl;
+                    if (!seq_in_bed){
+                        cerr << "Sequence not found in allowed regions [" << var->chrom << "|" << var->get_info("CHR2") << "]; skipping." << endl;
+                        continue;
+                    }
+                    else if (! seq_in_fasta){
+                        cerr << "ERROR: chrom not found: " <<
+                            var->chrom  << " or " << var->get_info("CHR2") <<
+                            "; are you using a VCF and FASTA from the same reference?" << endl;
                         cerr << "EXITING" << endl;
                         exit(9);
                     }
-                    else if (! seq_in_bed){
-                        #ifdef DEBUG
-                        cerr << "Sequence not found in allowed regions [" << var->chrom << "]; skipping." << endl;
-                        #endif
+
+                    std::uint64_t on_chrom_position = var->zero_based_position() + 1;
+
+                    bool valid_length = var->pos <= sg.name_to_contig.at(string(var->chrom)).seqlen;
+                    if (var->get_info("CHR2") != "" &&
+                            var->get_info("CHR2") != std::string(var->chrom)){
+                         valid_length = valid_length && std::stoull(var->get_info("END")) <= sg.name_to_contig.at(var->get_info("CHR2")).seqlen;
+                    }
+
+                    if (!valid_length){
+
+                        cerr << "ERROR: variant's position is greater than the length of the sequence. Please check that the right reference was used." << endl;
+                        cerr << "Skipping " << var->chrom << "position: " << on_chrom_position << " sequence length: " << sg.name_to_contig.at(string(var->chrom)).seqlen << endl;
                         continue;
                     }
-                    std::uint64_t on_chrom_position = var->zero_based_position() + 1;
+
                     string svtype = var->get_sv_type();
                     TVCF::minimal_allele_t* var_allele = new TVCF::minimal_allele_t();
 
@@ -508,7 +531,8 @@ int main(int argc, char** argv){
                     pliib::strcopy(var->get_sv_type().c_str(), var_allele->type);
                     std::uint64_t svend = var->get_sv_end() + 1;
                     if (svend == 0 || on_chrom_position == 0){
-                        pliib::strdelete(var_allele->chrom);
+                        cerr << "Skipping variant with no end or on-chrom position" << endl;
+			pliib::strdelete(var_allele->chrom);
                         pliib::strdelete(var_allele->type);
                         delete var;
                         continue;
@@ -671,6 +695,7 @@ int main(int argc, char** argv){
                 #ifdef DEBUG
                 cerr << allele->to_string() << endl;
                 #endif
+
                 // The below line is bad and idk why :'(
                 //if (pos != allele->pos - 1) continue;
                 
