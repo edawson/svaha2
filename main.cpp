@@ -531,7 +531,8 @@ int main(int argc, char** argv){
                     pliib::strcopy(var->get_sv_type().c_str(), var_allele->type);
                     std::uint64_t svend = var->get_sv_end() + 1;
                     if (svend == 0 || on_chrom_position == 0){
-                        pliib::strdelete(var_allele->chrom);
+                        cerr << "Skipping variant with no end or on-chrom position" << endl;
+			pliib::strdelete(var_allele->chrom);
                         pliib::strdelete(var_allele->type);
                         delete var;
                         continue;
