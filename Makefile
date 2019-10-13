@@ -12,6 +12,8 @@ debug: main.cpp tinyFA/tinyFA.hpp gfakluge/src/gfakluge.hpp tinyVCF/tinyVCF.hpp 
 	$(CXX) $(CXXFLAGS) -DDEBUG=1 -o $@ $< $(LD_INC_FLAGS) $(LD_LIB_FLAGS)
 
 
+cloud: main.cpp tinyFA/tinyFA.hpp gfakluge/src/gfakluge.hpp tinyVCF/tinyVCF.hpp Makefile
+	$(CXX) -O3 -mtune=haswell -march=haswell -o svaha2 $< $(LD_INC_FLAGS) $(LD_LIB_FLAGS)
 
 $(EXEC): main.cpp tinyFA/tinyFA.hpp gfakluge/src/gfakluge.hpp tinyVCF/tinyVCF.hpp Makefile
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LD_INC_FLAGS) $(LD_LIB_FLAGS)
