@@ -439,8 +439,6 @@ int main(int argc, char** argv){
         std::string name(x.first);
         if (acceptable_chroms.find(name) != acceptable_chroms.end()){
             sg.name_to_contig[name] = p;
-            //std::vector<TVCF::variant> bps;
-            //sg.name_to_variants[name] = bps;
         }
     }
 
@@ -455,13 +453,15 @@ int main(int argc, char** argv){
 
             char* current_contig = nullptr;
             //std::vector<std::uint64_t> breakpoints;
-            int mxlsz = 15000;
+            int mxlsz = 1500000;
             char* line = new char[mxlsz];
 
             while (vfi.getline(line, mxlsz)){
                 if (line[0] != '#'){
                     TVCF::variant* var = new TVCF::variant();
+		    //cerr << line[0] << endl;
                     TVCF::parse_variant_line(line, var);
+		    //cerr << var->chrom << " " << var->pos << endl;
 
                     //if (current_contig != NULL && current_contig != var->chrom){
                     // We've moved on to a new contig;
@@ -470,8 +470,8 @@ int main(int argc, char** argv){
                     //breakpoints.clear();
                     //}
                     // Add the breakpoint triggered by POS
-                    //cerr << "Creating breakpoint at [" << var->zero_based_position() <<
-                    //    ", " << var->get_reference_end(0) << "] for variant type " << var->get_info("SVTYPE") << endl;
+                    //cerr << "Creating breakpoint at [" << var->chrom << " " << var->zero_based_position() <<
+                    //    ", " << var->get_sv_end() << "] for variant type " << var->get_info("SVTYPE") << endl;
 
                     bool seq_in_fasta = TFA::hasSequence(tf, var->chrom);
                     bool seq_in_bed = acceptable_chroms.find(string(var->chrom)) != acceptable_chroms.end();
@@ -482,9 +482,7 @@ int main(int argc, char** argv){
                         exit(9);
                     }
                     else if (! seq_in_bed){
-                        #ifdef DEBUG
                         cerr << "Sequence not found in allowed regions [" << var->chrom << "]; skipping." << endl;
-                        #endif
                         continue;
                     }
                     std::uint64_t on_chrom_position = var->zero_based_position() + 1;
@@ -496,9 +494,7 @@ int main(int argc, char** argv){
                         second_chr = string(var->chrom);
                     }
                     else if (second_chr != string(var->chrom) && !do_translocations){
-                        #ifdef DEBUG
                         cerr << "Skipping interchrom variant " << var->chrom << " " << var->pos << endl;
-                        #endif
                         delete var_allele;
                         delete var;
                         continue;
@@ -508,6 +504,7 @@ int main(int argc, char** argv){
                     pliib::strcopy(var->get_sv_type().c_str(), var_allele->type);
                     std::uint64_t svend = var->get_sv_end() + 1;
                     if (svend == 0 || on_chrom_position == 0){
+			cerr << "Skipping variant without proper position " << var->chrom <<" " << var->pos << "."  << endl;
                         pliib::strdelete(var_allele->chrom);
                         pliib::strdelete(var_allele->type);
                         delete var;
@@ -534,27 +531,13 @@ int main(int argc, char** argv){
                     var_allele->end = svend -1 ;
 
 
-                            //else if (acceptable_chroms.find(second_chr) != acceptable_chroms.end()){
                     pliib::strcopy(second_chr.c_str(), var_allele->chrom_2);
                     sg.name_to_contig.at(string(var_allele->chrom_2)).breakpoints.push_back(var_allele->end);
-                            //}
                             
 
 
-                            //TVCF::variant v(*var);
-                            //sg.name_to_variants.at(string(var->chrom)).push_back(v);
-                            //sg.name_to_contig.at(string(var->chrom)).bp_to_variant[on_chrom_position] = var;
-                            //if (svtype != "TRA"){
-                            // else if (do_translocations && svtype == "TRA"){
-                            //     std::string c2 = var->get_info("CHR2");
-                            //     if (acceptable_chroms.find(c2) != acceptable_chroms.end()){
-                            //         sg.name_to_contig.at(c2).breakpoints.push_back(var->get_reference_end(0));
-                            //     }
-                            // }
                     sg.name_to_contig.at(string(var_allele->chrom)).bp_to_allele[var_allele->pos] = var_allele;
-                            // if (var_allele->chrom != var_allele->chrom_2)
-                            //     sg.name_to_contig.at(string(var_allele->chrom_2)).bp_to_allele[var_allele->end] = var_allele;
-
+		    //cerr << "var done" << " " << var->chrom << " " << var->pos << endl;
                     var_count += 1;
                     delete var;
                 }
