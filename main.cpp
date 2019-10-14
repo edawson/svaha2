@@ -31,6 +31,9 @@ namespace svaha {
         std::uint32_t seqlen;
         std::uint64_t contig_seq_start;
         std::uint64_t contig_seq_end;
+	std::string rgfa_seq_tag;
+	std::string r_gfa_x_tag;
+	std::string r_gfa_y_tag;
         // std::vector<node*> prev;
         // std::vector<node*> next;
 
@@ -45,6 +48,9 @@ namespace svaha {
             s.name = std::to_string(this->id);
             s.length = this->seqlen;
             s.sequence = string(this->seq);
+
+	    //TODO:  Add rGFA tags
+	    
             return s.to_string_1();
         };
 
