@@ -108,6 +108,7 @@ namespace svaha {
             e.ends.set(2,0);
             e.ends.set(3,0);
             e.type = 1;
+            e.alignment = "0M";
             return e.to_string_1();
         };
     };
