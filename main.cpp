@@ -133,16 +133,28 @@ namespace svaha {
     };
 
     struct walker_t{
-        std::uint64_t rank;
+        std::uint64_t rank = 0;
         char* pathname;
-	    walker_t(){
-            rank = 0;
-	    }
+
+        walker_t(){
+            this->rank = 0;
+        };
+
+        walker_t(char*& s){
+            this->rank = 0;
+            pliib::strcopy(s, this->pathname);
+        };
+
+        walker_t(std::string s){
+            pliib::strcopy(s.c_str(), this->pathname);
+        };
+
         std::uint64_t get_next_rank(){
             return ++rank;
         };
         walk_t add_node(svaha::node*& n, bool forward = true){
             walk_t w(n, pathname, get_next_rank(), forward);
+            return w;
         };
     };
 
@@ -261,7 +273,7 @@ namespace svaha {
             return ++curr_edge_id;
         };
         spp::sparse_hash_map<string, pre_contig> name_to_contig;
-        spp::sparse_hash_map<std::string, svaha::path> name_to_path;
+        spp::sparse_hash_map<std::string, svaha::walker_t> name_to_walker;
 
         //spp::sparse_hash_map<string, vector<TVCF::variant>> name_to_variants;
         void re_id(){
@@ -595,10 +607,16 @@ int main(int argc, char** argv){
         }
         TFA::getSequence(tf, c.first.c_str(), c.second.seq);
         std::size_t numbp = c.second.breakpoints.size();
+
+
         if (output_paths){
-            svaha::path cp(numbp);
-            cp.name = c.first;
-            sg.name_to_path[c.first] = cp; 
+            // Create reference walkers to output ref paths.
+            //svaha::path cp(numbp);
+            //cp.name = c.first;
+            //sg.name_to_path[c.first] = cp; 
+
+            svaha::walker_t walker(c.first);
+            sg.name_to_walker[c.first] = walker;
         }
 
 
@@ -622,7 +640,7 @@ int main(int argc, char** argv){
             //     continue;
             // }
             svaha::node* n = sg.create_node();
-            pliib::strcopy(c.first.c_str(), n->contig);
+            //pliib::strcopy(c.first.c_str(), n->contig);
             #ifdef DEBUG
             cerr << c.second.seqlen << " " << pos << " " << brk - pos << endl;
             #endif
@@ -632,7 +650,10 @@ int main(int argc, char** argv){
             // Emit the node, caching it if we need it later for a variant.
             cout << n->emit() << endl;
             if (output_paths){
-                sg.name_to_path[c.first].add_node(n);
+                // Add a walk for the given node
+                //sg.name_to_path[c.first].add_node(n);
+                svaha::walk_t w = sg.name_to_walker[c.first].add_node(n);
+                cout << w.to_string() << endl;
             }
 
             //pliib::strdelete(n->seq);
@@ -882,9 +903,9 @@ int main(int argc, char** argv){
 
             processed_alleles[allele->make_id()] = 1;
         }
-        if (output_paths){
-            cout << sg.name_to_path[c.first].to_string() << endl;
-        }
+        // if (output_paths){
+        //     cout << sg.name_to_path[c.first].to_string() << endl;
+        // }
     }
 
     pliib::strdelete(ref_file);
