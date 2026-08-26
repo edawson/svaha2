@@ -1,0 +1,17 @@
+.git
+ext-data
+terminals
+agent-transcripts
+svaha
+debug
+test_svaha
+*.gfa
+*.vg
+*.fa
+*.fasta
+*.fai
+*.fastq
+*.vcf
+*.bed
+*.gz
+*.html

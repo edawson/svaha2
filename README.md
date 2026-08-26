@@ -40,6 +40,16 @@ Load multiple files from different sources simultaneously:
     -v background_variants.vcf > cancer_graph.gfa
 ```
 
+### 4. Docker
+You can also run `svaha` using Docker:
+```bash
+# Build the image
+docker build -t svaha .
+
+# Run the image
+docker run --rm -v $(pwd):/data svaha build -r /data/ref.fa -v /data/vars.vcf > output.gfa
+```
+
 ## Command Line Interface
 
 ### `build`
