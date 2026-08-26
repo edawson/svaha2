@@ -1,9 +1,11 @@
 *.dsym*
+svaha
 svaha2
+debug
+test_svaha
 .DS_Store
 *.gfa
 *.vg
-*.txt
 .vscode
 *.fa
 *.fai
@@ -11,3 +13,5 @@ svaha2
 *.fastq
 *.vcf
 *.bed
+*.gz
+*.html
