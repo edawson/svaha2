@@ -52,6 +52,8 @@ docker run --rm -v $(pwd):/data svaha build -r /data/ref.fa -v /data/vars.vcf > 
 
 ## Command Line Interface
 
+For detailed information on all input formats and construction options, see the [Extended Usage Guide](docs/usage.md).
+
 ### `build`
 Construct a GFA from reference and variants.
 - `-r <file>`: Reference FASTA (required).
