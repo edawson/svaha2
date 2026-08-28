@@ -18,6 +18,7 @@
 #include <condition_variable>
 #include <locale>
 #include <iomanip>
+#include <functional>
 
 namespace svaha {
 
