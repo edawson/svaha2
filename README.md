@@ -72,6 +72,18 @@ Show summary statistics for a GFA file.
 ./svaha stats output.gfa
 ```
 
+### `view`
+Visualize a portion of the graph by converting it to Graphviz DOT format.
+```bash
+# Generate a DOT file
+./svaha view output.gfa > graph.dot
+
+# Convert to image (requires Graphviz 'dot' tool)
+dot -Tpng graph.dot -o graph.png
+```
+
+For large-scale visualization, we recommend **Bandage** (https://github.com/rrwick/Bandage).
+
 ## Algorithm
 1. **Breakpoint identification**: Extract genomic positions where variants start or end.
 2. **Backbone discretization**: Divide the reference into stable segments based on these breakpoints.
