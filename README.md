@@ -53,6 +53,7 @@ docker run --rm -v $(pwd):/data svaha build -r /data/ref.fa -v /data/vars.vcf > 
 ## Command Line Interface
 
 For detailed information on all input formats and construction options, see the [Extended Usage Guide](docs/usage.md).
+For a step-by-step walkthrough using cancer genomics data, see the [cBioPortal Tutorial](docs/tutorial_cbioportal.md).
 
 ### `build`
 Construct a GFA from reference and variants.
