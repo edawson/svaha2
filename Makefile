@@ -4,7 +4,9 @@ LD_INC_FLAGS:=  -I./include
 LD_LIB_FLAGS:=
 
 EXEC:=svaha
-DOCKER_IMAGE:=erictdawson/svaha2
+VERSION:=0.2.0
+DOCKER_IMAGE:=erictdawson/svaha2:v$(VERSION)
+DOCKER_LATEST:=erictdawson/svaha2:latest
 
 # Ensure all headers are included in the dependency list
 HEADERS:=include/svaha.hpp
@@ -21,10 +23,11 @@ $(EXEC): src/main.cpp $(HEADERS) Makefile
 .PHONY: clean fast test debug docker-build docker-push
 
 docker-build:
-	docker build -t $(DOCKER_IMAGE) .
+	docker build -t $(DOCKER_IMAGE) -t $(DOCKER_LATEST) .
 
 docker-push: docker-build
 	docker push $(DOCKER_IMAGE)
+	docker push $(DOCKER_LATEST)
 
 test: tests/test_svaha.cpp $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o test_svaha $< $(LD_INC_FLAGS)
