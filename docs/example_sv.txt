@@ -1,2 +1,3 @@
 Site1_Chromosome	Site1_Position	Site2_Chromosome	Site2_Position	Class	Connection_Type
 17	7676000	17	7676100	INVERSION	3to3
+17	7676000	17	7676100	INVERSION	5to5

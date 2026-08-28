@@ -462,7 +462,13 @@ int main(int argc, char** argv) {
             } else if (type == 'L') {
                 std::string from, from_ori, to, to_ori, overlap;
                 ss >> from >> from_ori >> to >> to_ori >> overlap;
-                std::cout << "  " << from << " -> " << to << " [label=\"" << from_ori << to_ori << "\"];" << std::endl;
+                std::string color = "black";
+                std::string style = "solid";
+                if (from_ori == "-" || to_ori == "-") {
+                    color = "red";
+                    style = "dashed";
+                }
+                std::cout << "  " << from << " -> " << to << " [label=\"" << from_ori << to_ori << "\", color=\"" << color << "\", style=\"" << style << "\"];" << std::endl;
             }
         }
         std::cout << "}" << std::endl;

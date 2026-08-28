@@ -39,15 +39,15 @@ We will build a graph for a 100bp region on Chromosome 17 containing a `TP53` mu
     --maf ext-data/luad_tcga_gdc/data_mutations.txt \
     --sv docs/example_sv.txt \
     --relax-chrom \
-    -R chr17:7676000-7676100 -m 32 > tp53_hotspot.gfa
+    -R chr17:7675500-7676500 -m 32 > tp53_hotspot.gfa
 ```
 
 ### Key Parameters:
 - `-r`: Points to your local copy of the hg38 reference.
 - `--maf`: Loads somatic mutations from the LUAD study.
-- `--sv`: Loads a sample inversion in the same region.
+- `--sv`: Loads a sample inversion (both junctions) in the same region.
 - `--relax-chrom`: Maps plain `17` in the data to `chr17` in the assembly38 reference.
-- `-R`: Focuses on a 100bp window.
+- `-R`: Focuses on a 1kb window, providing enough **padding** to see the nodes connected by the structural variant.
 - `-m 32`: Sets a small node size for higher resolution in the visualization.
 
 ---
@@ -67,7 +67,8 @@ dot -Tpng tp53_hotspot.dot -o tp53_hotspot.png
 ### Interpreting the Visualization:
 - **White Nodes**: Reference backbone segments.
 - **Blue Nodes**: Alternate alleles (SNPs, insertions) from the MAF.
-- **Edges**: Lines connecting nodes. Look for non-linear edges representing the inversion from the SV file.
+- **Black Solid Edges**: Standard linear reference flow.
+- **Red Dashed Edges**: Non-standard connections (Inversions). You will see these skipping or reversing the flow of backbone nodes.
 
 ---
 
