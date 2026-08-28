@@ -82,4 +82,16 @@ make
 
 # 3. Check graph stats
 ./svaha stats my_graph.gfa
+
+# 4. Visualize the graph (regional only)
+./svaha view my_graph.gfa > my_graph.dot
+dot -Tpdf my_graph.dot -o my_graph.pdf
 ```
+
+---
+
+## Visualization Tools
+
+1.  **Built-in `view` command**: Best for small regional graphs (e.g., < 100 nodes). Converts GFA to DOT format for use with Graphviz.
+2.  **Bandage**: The gold standard for large-scale GFA visualization. It provides an interactive GUI for exploring complex variation graphs.
+3.  **vg view**: If you have the `vg` toolkit, you can use `vg view -d` to generate more complex SVG/DOT visualizations.

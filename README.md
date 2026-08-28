@@ -53,6 +53,7 @@ docker run --rm -v $(pwd):/data svaha build -r /data/ref.fa -v /data/vars.vcf > 
 ## Command Line Interface
 
 For detailed information on all input formats and construction options, see the [Extended Usage Guide](docs/usage.md).
+For a step-by-step walkthrough using cancer genomics data, see the [cBioPortal Tutorial](docs/tutorial_cbioportal.md).
 
 ### `build`
 Construct a GFA from reference and variants.
@@ -70,6 +71,18 @@ Show summary statistics for a GFA file.
 ```bash
 ./svaha stats output.gfa
 ```
+
+### `view`
+Visualize a portion of the graph by converting it to Graphviz DOT format.
+```bash
+# Generate a DOT file
+./svaha view output.gfa > graph.dot
+
+# Convert to image (requires Graphviz 'dot' tool)
+dot -Tpng graph.dot -o graph.png
+```
+
+For large-scale visualization, we recommend **Bandage** (https://github.com/rrwick/Bandage).
 
 ## Algorithm
 1. **Breakpoint identification**: Extract genomic positions where variants start or end.

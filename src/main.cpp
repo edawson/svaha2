@@ -422,7 +422,56 @@ int main(int argc, char** argv) {
         }
         std::cout << "GFA Statistics for: " << gfa_path << "\nNodes: " << node_count << "\nEdges: " << edge_count << "\nTotal Sequence Length: " << total_len << " bp" << std::endl;
     } else if (command == "view") {
-        std::cout << "View command (Implementation pending...)" << std::endl;
+        std::string gfa_path;
+        for (int i = 2; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "-h" || arg == "--help") { std::cout << "Usage: svaha view <file.gfa>\n"; return 0; }
+            gfa_path = arg;
+        }
+        if (gfa_path.empty()) { std::cerr << "Error: GFA file required for view." << std::endl; return 1; }
+        std::ifstream gfa_file(gfa_path);
+        if (!gfa_file.is_open()) { std::cerr << "Error: Could not open GFA file: " << gfa_path << std::endl; return 1; }
+        
+        std::cout << "digraph G {" << std::endl;
+        std::cout << "  rankdir=LR;" << std::endl;
+        std::cout << "  node [shape=box, style=filled, fillcolor=white, fontname=\"Courier\"];" << std::endl;
+
+        std::string line;
+        while (std::getline(gfa_file, line)) {
+            if (line.empty()) continue;
+            std::stringstream ss(line);
+            char type;
+            ss >> type;
+            if (type == 'S') {
+                std::string id, seq, tags;
+                ss >> id >> seq;
+                std::getline(ss, tags);
+                
+                std::string label = id;
+                std::string color = "white";
+                if (tags.find("SR:i:0") == std::string::npos) {
+                    color = "lightblue";
+                }
+                
+                // Truncate sequence for label
+                std::string display_seq = seq;
+                if (seq.length() > 20) display_seq = seq.substr(0, 17) + "...";
+                if (seq != "*") label += "\\n" + display_seq;
+
+                std::cout << "  " << id << " [label=\"" << label << "\", fillcolor=\"" << color << "\"];" << std::endl;
+            } else if (type == 'L') {
+                std::string from, from_ori, to, to_ori, overlap;
+                ss >> from >> from_ori >> to >> to_ori >> overlap;
+                std::string color = "black";
+                std::string style = "solid";
+                if (from_ori == "-" || to_ori == "-") {
+                    color = "red";
+                    style = "dashed";
+                }
+                std::cout << "  " << from << " -> " << to << " [label=\"" << from_ori << to_ori << "\", color=\"" << color << "\", style=\"" << style << "\"];" << std::endl;
+            }
+        }
+        std::cout << "}" << std::endl;
     } else { print_usage(); return 1; }
     return 0;
 }
