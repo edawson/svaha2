@@ -31,44 +31,59 @@ You will see that `NCBI_Build` is `GRCh38` and the `Chromosome` column uses plai
 
 ## Step 2: Build a Regional Graph (hg38)
 
-We will build a graph for a 50kb region on Chromosome 1 containing the `CHD5` gene.
+We will build a graph for a 100bp region on Chromosome 17 containing a `TP53` mutational hotspot. To show how SVs and SNVs integrate, we've provided a sample SV file in `docs/example_sv.txt`.
 
 ```bash
 ./svaha build \
     -r Homo_sapiens_assembly38.fasta \
     --maf ext-data/luad_tcga_gdc/data_mutations.txt \
+    --sv docs/example_sv.txt \
     --relax-chrom \
-    -R chr1:6100000-6150000 > luad_chd5.gfa
+    -R chr17:7676000-7676100 -m 32 > tp53_hotspot.gfa
 ```
 
 ### Key Parameters:
 - `-r`: Points to your local copy of the hg38 reference.
-- `--maf`: Loads the somatic mutations from the LUAD study.
-- `--relax-chrom`: **Critical** for this dataset, as it maps the plain `1` in the MAF to `chr1` in the assembly38 reference.
-- `-R`: Focuses the build on the specific `CHD5` genomic window.
+- `--maf`: Loads somatic mutations from the LUAD study.
+- `--sv`: Loads a sample inversion in the same region.
+- `--relax-chrom`: Maps plain `17` in the data to `chr17` in the assembly38 reference.
+- `-R`: Focuses on a 100bp window.
+- `-m 32`: Sets a small node size for higher resolution in the visualization.
 
 ---
 
-## Step 3: Analyze the Graph
+## Step 3: Visualize the Graph
 
-Once the build completes, verify the results:
+For small regions, you can generate a Graphviz DOT file to see the graph topology:
 
 ```bash
-./svaha stats luad_chd5.gfa
+# 1. Convert GFA to DOT
+./svaha view tp53_hotspot.gfa > tp53_hotspot.dot
+
+# 2. Render to an image (requires Graphviz installed)
+dot -Tpng tp53_hotspot.dot -o tp53_hotspot.png
 ```
 
-Expected output for this region:
-```text
-GFA Statistics for: luad_chd5.gfa
-Nodes: 1669
-Edges: 1707
-Total Sequence Length: 50039 bp
-```
-This shows that 39 alternate alleles (variants) were successfully integrated into the reference backbone.
+### Interpreting the Visualization:
+- **White Nodes**: Reference backbone segments.
+- **Blue Nodes**: Alternate alleles (SNPs, insertions) from the MAF.
+- **Edges**: Lines connecting nodes. Look for non-linear edges representing the inversion from the SV file.
 
 ---
 
-## Step 4: Full Genome Construction (Optional)
+## Step 4: Prototyping a Visualization
+
+If you have Graphviz installed, try this:
+```bash
+# Extract the backbone and variant nodes
+grep "label" tp53_hotspot.dot | head -n 10
+```
+
+You will see the discretized reference nodes and the variant nodes (highlighted in blue in the rendered image). This 100bp region is dense enough to show the power of variation graphs in cancer genomics while being small enough to fit on a single screen.
+
+---
+
+## Step 5: Full Genome Construction (Optional)
 
 To build a comprehensive graph for the entire LUAD cohort across all chromosomes:
 
