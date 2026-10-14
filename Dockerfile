@@ -12,13 +12,12 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /build
 
 # Copy source code
-COPY include/ include/
-COPY src/ src/
+COPY cpp/ cpp/
 COPY Makefile .
 
 # Build the application
 # We override CXXFLAGS to remove -march=native for portability in the container
-RUN make CXXFLAGS="-O3 -ffast-math -std=c++17"
+RUN make cpp CXXFLAGS="-O3 -ffast-math -std=c++17"
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -30,7 +29,7 @@ RUN groupadd -r svaha && useradd -r -g svaha svaha
 WORKDIR /app
 
 # Copy the binary from the builder stage
-COPY --from=builder /build/svaha /usr/local/bin/svaha
+COPY --from=builder /build/svaha-cpp /usr/local/bin/svaha
 
 # Set permissions
 RUN chown svaha:svaha /usr/local/bin/svaha

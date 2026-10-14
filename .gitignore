@@ -1,6 +1,8 @@
 *.dsym*
 svaha
 svaha2
+svaha-cpp
+svaha-rust
 debug
 test_svaha
 .DS_Store
