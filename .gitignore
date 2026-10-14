@@ -16,3 +16,10 @@ test_svaha
 *.gz
 *.html
 ext-data/
+
+# Rust
+svaha-rs/target/
+
+# Visualization
+*.dot
+*.png
